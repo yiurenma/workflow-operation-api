@@ -8,7 +8,12 @@ import org.hibernate.envers.Audited;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name = "WORKFLOW_RULE_AND_TYPE_MAPPING")
+@Table(
+        name = "WORKFLOW_RULE_AND_TYPE_MAPPING",
+        indexes = {
+                @Index(name = "idx_rule_type_mapping_linking_id", columnList = "linking_id")
+        }
+)
 @DynamicUpdate
 @Audited
 @AllArgsConstructor
@@ -25,6 +30,7 @@ public class WorkflowRuleAndType extends Auditable {
     @Column(name = "id", nullable = false)
     private Long id;
 
+    @Column(name = "linking_id")
     private String linkingId;
 
     @ManyToOne

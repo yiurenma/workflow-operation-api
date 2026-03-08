@@ -9,7 +9,12 @@ import org.hibernate.envers.Audited;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name = "WORKFLOW_RULE")
+@Table(
+        name = "WORKFLOW_RULE",
+        indexes = {
+                @Index(name = "idx_workflow_rule_rule_key", columnList = "rule_key")
+        }
+)
 @DynamicUpdate
 @Audited
 @AllArgsConstructor
@@ -27,7 +32,7 @@ public class WorkflowRule extends Auditable {
     @Comment("Primary key, auto-generated")
     private Long id;
 
-    @Column(name = "key", nullable = false)
+    @Column(name = "rule_key", nullable = false)
     @Comment("JSONPath expression to validate runtime data (evaluates to true/false). Uses Jayway JsonPath syntax.")
     private String key;
 

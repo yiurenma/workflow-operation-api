@@ -10,7 +10,12 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.io.Serializable;
 
 @Entity
-@Table(name = "WORKFLOW_ENTITY_SETTING")
+@Table(
+        name = "WORKFLOW_ENTITY_SETTING",
+        indexes = {
+                @Index(name = "idx_workflow_entity_setting_application_name", columnList = "application_name")
+        }
+)
 @DynamicUpdate
 @Audited
 @AllArgsConstructor
@@ -27,8 +32,8 @@ public class WorkflowEntitySetting extends Auditable implements Serializable {
     @Comment("Primary key, auto-generated")
     private Long id;
 
-    @Column(nullable = false)
     @Comment("Name of the application or client using this workflow")
+    @Column(name = "application_name", nullable = false)
     private String applicationName;
 
     @Column(nullable = true)

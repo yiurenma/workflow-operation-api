@@ -43,7 +43,7 @@ public interface WorkflowRecordRepository extends
     @Query(nativeQuery = true, value = "" +
             "SELECT id " +
             "FROM workflow_record " +
-            "WHERE created_date_time=?1 "
+            "WHERE created_date_time < ?1 "
     )
     List<Long> findByCreatedDateTimeBefore(Date endDateTime);
 
