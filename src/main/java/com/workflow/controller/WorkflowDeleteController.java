@@ -92,15 +92,13 @@ public class WorkflowDeleteController {
         log.info("Going to delete rule, ID list: {}", ruleIds);
         workflowRuleRepository.deleteAllByIdInBatch(ruleIds);
 
-        entitySetting.setTrackingServiceProviderActionId(null);
-        entitySetting.setTrackingServiceProviderActionId2(null);
-        entitySetting.setWorkflow(null);
-        workflowEntitySettingRepository.saveAndFlush(entitySetting);
+        log.info("Going to delete entity: {} {}", applicationName, entitySettingId);
+        workflowEntitySettingRepository.deleteById(entitySettingId);
 
         List<Long> typeIds = deleteTypeSet.stream().map(WorkflowType::getId).toList();
         log.info("Going to delete action, ID list: {}", typeIds);
         workflowTypeRepository.deleteAllByIdInBatch(typeIds);
 
-        log.info("Workflow definition cleaned for application: {} (report/record kept)", applicationName);
+        log.info("Workflow and entity removed for application: {} (report/record kept)", applicationName);
     }
 }
