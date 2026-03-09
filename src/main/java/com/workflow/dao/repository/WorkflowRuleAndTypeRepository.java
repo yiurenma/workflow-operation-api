@@ -21,4 +21,6 @@ public interface WorkflowRuleAndTypeRepository extends
         JpaSpecificationExecutor<WorkflowRuleAndType>,
         RevisionRepository<WorkflowRuleAndType, Long, Integer> {
     List<WorkflowRuleAndType> getAllByLinkingId(String linkingId);
+
+    List<WorkflowRuleAndType> findAllByLinkingIdIn(List<String> linkingIds);
 }

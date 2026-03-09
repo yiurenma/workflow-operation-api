@@ -1,0 +1,166 @@
+package com.workflow.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.workflow.controller.domain.Plugin;
+import com.workflow.controller.domain.WorkFlow;
+import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMapping;
+import com.workflow.dao.repository.WorkflowEntitySetting;
+import com.workflow.dao.repository.WorkflowEntitySettingRepository;
+import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMappingRepository;
+import com.workflow.dao.repository.WorkflowRuleAndType;
+import com.workflow.dao.repository.WorkflowRuleAndTypeRepository;
+import com.workflow.dao.repository.WorkflowType;
+import com.workflow.common.util.Base64Util;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.NotNull;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.*;
+
+@Slf4j
+@RestController
+@RequestMapping("/api")
+@Tag(name = "Workflow Get API", description = "Get workflow by application name")
+@Validated
+@RequiredArgsConstructor
+public class WorkflowGetController {
+
+    private final WorkflowEntitySettingRepository workflowEntitySettingRepository;
+    private final WorkflowEntityAndLinkingIdMappingRepository workflowEntityAndLinkingIdMappingRepository;
+    private final WorkflowRuleAndTypeRepository workflowRuleAndTypeRepository;
+    private final ObjectMapper objectMapper;
+
+    @GetMapping(value = "/workflow", produces = MediaType.APPLICATION_JSON_VALUE)
+    public WorkFlow getWorkFlow(
+            @RequestParam(required = true) @Parameter(example = "UK_DRFI", required = true,
+                    description = "Application identifier for the workflow") @NotNull String applicationName) {
+
+        List<WorkflowEntitySetting> entitySettingList =
+                workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName(applicationName);
+
+        if (entitySettingList.size() != 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Application name must exist exactly once; found: " + entitySettingList.size());
+        }
+
+        WorkflowEntitySetting entitySetting = entitySettingList.get(0);
+        WorkFlow currentWorkFlow = null;
+        if (StringUtils.hasText(entitySetting.getWorkflow())) {
+            try {
+                String decoded = Base64Util.base64Decode(entitySetting.getWorkflow(), true, objectMapper);
+                currentWorkFlow = objectMapper.readValue(decoded, WorkFlow.class);
+            } catch (Exception e) {
+                log.warn("Failed to parse workflow JSON: {}", e.getMessage());
+            }
+        }
+
+        List<WorkflowEntityAndLinkingIdMapping> linkingIdMappingList =
+                workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(entitySetting.getId());
+        linkingIdMappingList.sort(Comparator.comparing(WorkflowEntityAndLinkingIdMapping::getLogicOrder));
+
+        List<String> linkingIds = linkingIdMappingList.stream()
+                .map(WorkflowEntityAndLinkingIdMapping::getWorkflowRuleAndTypeLinkingId)
+                .distinct()
+                .toList();
+        List<WorkflowRuleAndType> allRuleAndTypeList = workflowRuleAndTypeRepository.findAllByLinkingIdIn(linkingIds);
+
+        List<Plugin> pluginList = new ArrayList<>();
+        for (WorkflowEntityAndLinkingIdMapping mapping : linkingIdMappingList) {
+            log.info("Get information for step: {} and remark: {}", mapping.getLogicOrder(), mapping.getRemark());
+            List<WorkflowRuleAndType> ruleAndTypeList = allRuleAndTypeList.stream()
+                    .filter(rt -> rt.getLinkingId().equals(mapping.getWorkflowRuleAndTypeLinkingId()))
+                    .toList();
+
+            if (!ruleAndTypeList.isEmpty()) {
+                WorkflowType typeView = ruleAndTypeList.get(0).getWorkflowType();
+                WorkflowType copyType = WorkflowType.builder().build();
+                org.springframework.beans.BeanUtils.copyProperties(typeView, copyType);
+                copyType.setElseLogic(Base64Util.base64Decode(typeView.getElseLogic(), true, objectMapper));
+                copyType.setHttpRequestUrlWithQueryParameter(Base64Util.base64Decode(typeView.getHttpRequestUrlWithQueryParameter(), false, objectMapper));
+                copyType.setInternalHttpRequestUrlWithQueryParameter(Base64Util.base64Decode(typeView.getInternalHttpRequestUrlWithQueryParameter(), false, objectMapper));
+                copyType.setHttpRequestHeaders(Base64Util.base64Decode(typeView.getHttpRequestHeaders(), true, objectMapper));
+                copyType.setHttpRequestBody(Base64Util.base64Decode(typeView.getHttpRequestBody(), true, objectMapper));
+                copyType.setTrackingNumberSchemaInHttpResponse(Base64Util.base64Decode(typeView.getTrackingNumberSchemaInHttpResponse(), true, objectMapper));
+
+                Object uiMap = currentWorkFlow != null && currentWorkFlow.getPluginList() != null
+                        ? currentWorkFlow.getPluginList().stream()
+                        .filter(p -> p.getId() != null && p.getId().equals(mapping.getLogicOrder()))
+                        .findFirst()
+                        .map(Plugin::getUiMap)
+                        .orElse(createDefaultUiMap(mapping.getLogicOrder(), typeView.getType()))
+                        : createDefaultUiMap(mapping.getLogicOrder(), typeView.getType());
+
+                pluginList.add(Plugin.builder()
+                        .id(mapping.getLogicOrder())
+                        .description(mapping.getRemark())
+                        .linkingIdOfRuleListAndAction(mapping.getWorkflowRuleAndTypeLinkingId())
+                        .action(copyType)
+                        .ruleList(ruleAndTypeList.stream().map(WorkflowRuleAndType::getWorkflowRule).toList())
+                        .uiMap(uiMap)
+                        .build());
+            } else {
+                log.warn("No rule and action linking for step: {} and remark: {}", mapping.getLogicOrder(), mapping.getRemark());
+                pluginList.add(Plugin.builder()
+                        .id(mapping.getLogicOrder())
+                        .description(mapping.getRemark())
+                        .linkingIdOfRuleListAndAction(mapping.getWorkflowRuleAndTypeLinkingId())
+                        .uiMap(createDefaultUiMap(mapping.getLogicOrder(), "Unknown"))
+                        .build());
+            }
+        }
+        pluginList.sort(Comparator.comparing(Plugin::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        for (Plugin plugin : pluginList) {
+            if (plugin.getUiMap() == null && plugin.getAction() != null) {
+                plugin.setUiMap(createDefaultUiMap(plugin.getId(), plugin.getAction().getType()));
+            }
+        }
+
+        List<Object> uiMapList = (currentWorkFlow != null && currentWorkFlow.getUiMapList() != null && !currentWorkFlow.getUiMapList().isEmpty())
+                ? currentWorkFlow.getUiMapList()
+                : createDefaultUiMapList(pluginList);
+
+        return WorkFlow.builder().pluginList(pluginList).uiMapList(uiMapList).build();
+    }
+
+    private Object createDefaultUiMap(Integer id, String type) {
+        Map<String, Object> uiMap = new LinkedHashMap<>();
+        uiMap.put("id", type + "_" + id);
+        uiMap.put("type", type);
+        uiMap.put("position", Map.of("x", 100, "y", 100 * (id != null ? id : 0)));
+        uiMap.put("measured", Map.of("width", 160, "height", 38));
+        return uiMap;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Object> createDefaultUiMapList(List<Plugin> pluginList) {
+        List<Object> uiMapList = new ArrayList<>();
+        for (int i = 0; i < pluginList.size() - 1; i++) {
+            Object uiMap = pluginList.get(i).getUiMap();
+            Object nextUiMap = pluginList.get(i + 1).getUiMap();
+            String sourceId = uiMap instanceof Map m ? (String) m.get("id") : "";
+            String targetId = nextUiMap instanceof Map m ? (String) m.get("id") : "";
+            Map<String, Object> connection = new LinkedHashMap<>();
+            connection.put("animated", true);
+            connection.put("markerEnd", Map.of("type", "arrowclosed"));
+            connection.put("type", "buttonEdge");
+            connection.put("style", Map.of("strokeWidth", 2));
+            connection.put("zIndex", 1001);
+            connection.put("source", sourceId);
+            connection.put("sourceHandle", "source-handle");
+            connection.put("target", targetId);
+            connection.put("targetHandle", "target-handle");
+            connection.put("id", "xy-edge__" + sourceId + "source-handle-" + targetId + "target-handle");
+            uiMapList.add(connection);
+        }
+        return uiMapList;
+    }
+}

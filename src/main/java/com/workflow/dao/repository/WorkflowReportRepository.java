@@ -17,5 +17,7 @@ public interface WorkflowReportRepository extends
         QuerydslPredicateExecutor<WorkflowReport>,
         JpaRepository<WorkflowReport, Long>,
         JpaSpecificationExecutor<WorkflowReport>,
-        RevisionRepository<WorkflowReport, Long, Integer>{
+        RevisionRepository<WorkflowReport, Long, Integer> {
+
+    java.util.List<WorkflowReport> findByWorkflowEntitySetting_Id(Long workflowEntitySettingId);
 }
