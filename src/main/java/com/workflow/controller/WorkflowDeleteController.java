@@ -4,6 +4,7 @@ import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMapping;
 import com.workflow.dao.repository.WorkflowEntitySetting;
 import com.workflow.dao.repository.WorkflowEntitySettingRepository;
 import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMappingRepository;
+import com.workflow.dao.repository.WorkflowReportRepository;
 import com.workflow.dao.repository.WorkflowRule;
 import com.workflow.dao.repository.WorkflowRuleAndType;
 import com.workflow.dao.repository.WorkflowRuleAndTypeRepository;
@@ -36,6 +37,7 @@ public class WorkflowDeleteController {
 
     private final WorkflowEntitySettingRepository workflowEntitySettingRepository;
     private final WorkflowEntityAndLinkingIdMappingRepository workflowEntityAndLinkingIdMappingRepository;
+    private final WorkflowReportRepository workflowReportRepository;
     private final WorkflowRuleAndTypeRepository workflowRuleAndTypeRepository;
     private final WorkflowRuleRepository workflowRuleRepository;
     private final WorkflowTypeRepository workflowTypeRepository;
@@ -56,6 +58,11 @@ public class WorkflowDeleteController {
 
         WorkflowEntitySetting entitySetting = entitySettingList.get(0);
         Long entitySettingId = entitySetting.getId();
+        if (!workflowReportRepository.findByWorkflowEntitySetting_Id(entitySettingId).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot delete workflow: reports exist for this application");
+        }
+
         List<WorkflowEntityAndLinkingIdMapping> linkingIdMappingList =
                 workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(entitySettingId);
 
