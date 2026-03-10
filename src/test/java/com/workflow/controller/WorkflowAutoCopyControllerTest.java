@@ -48,7 +48,7 @@ class WorkflowAutoCopyControllerTest {
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> controller.autoCopyWorkFlow("from", "to")
+                () -> controller.autoCopyWorkFlow("application/json", "from", "to")
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
@@ -71,7 +71,7 @@ class WorkflowAutoCopyControllerTest {
         when(workflowGetController.getWorkFlow("from")).thenReturn(source);
         when(workflowUpdateController.updateWorkFlow("to", source)).thenReturn(expected);
 
-        WorkFlow result = controller.autoCopyWorkFlow("from", "to");
+        WorkFlow result = controller.autoCopyWorkFlow("application/json", "from", "to");
 
         assertEquals(expected, result);
 
