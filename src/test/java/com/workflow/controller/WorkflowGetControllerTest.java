@@ -197,7 +197,7 @@ class WorkflowGetControllerTest {
                 .id(31L)
                 .logicOrder(null)
                 .remark("nullable-order")
-                .workflowRuleAndTypeLinkingId("NULL_LINK")
+                .workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("NULL_LINK").build())
                 .build();
 
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app3")).thenReturn(List.of(entitySetting));
@@ -288,5 +288,68 @@ class WorkflowGetControllerTest {
         Map<?, ?> uiMap = (Map<?, ?>) result.getPluginList().get(0).getUiMap();
         assertEquals("TYPE_X_1", uiMap.get("id"));
         assertEquals(List.of(), result.getUiMapList());
+    }
+
+    @Test
+    void getWorkFlowShouldHandleMissingRuleTypeMappingReference() {
+        WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder()
+                .id(6L)
+                .applicationName("app6")
+                .workflow(null)
+                .build();
+
+        WorkflowEntityAndLinkingIdMapping mapping = WorkflowEntityAndLinkingIdMapping.builder()
+                .id(61L)
+                .logicOrder(1)
+                .remark("no-linking-ref")
+                .workflowRuleAndTypeMapping(null)
+                .build();
+
+        when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app6")).thenReturn(List.of(entitySetting));
+        when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(6L))
+                .thenReturn(new ArrayList<>(List.of(mapping)));
+        when(workflowRuleAndTypeRepository.findAllByLinkingIdIn(anyList())).thenReturn(List.of());
+
+        WorkFlow result = controller.getWorkFlow("app6");
+
+        assertEquals(1, result.getPluginList().size());
+        assertEquals(null, result.getPluginList().get(0).getLinkingIdOfRuleListAndAction());
+        assertEquals("Unknown", ((Map<?, ?>) result.getPluginList().get(0).getUiMap()).get("type"));
+    }
+
+    @Test
+    void getWorkFlowShouldFillDefaultUiMapWhenMatchedPluginUiMapIsNull() throws Exception {
+        WorkFlow current = WorkFlow.builder()
+                .pluginList(List.of(Plugin.builder().id(1).uiMap(null).build()))
+                .uiMapList(null)
+                .build();
+        WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder()
+                .id(7L)
+                .applicationName("app7")
+                .workflow(Base64Util.base64Encode(objectMapper.writeValueAsString(current), true, objectMapper))
+                .build();
+
+        WorkflowEntityAndLinkingIdMapping mapping = WorkflowEntityAndLinkingIdMapping.builder()
+                .id(71L)
+                .logicOrder(1)
+                .remark("fill-ui-map")
+                .workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("L7").build())
+                .build();
+        WorkflowRuleAndType rt = WorkflowRuleAndType.builder()
+                .id(971L)
+                .linkingId("L7")
+                .workflowRule(WorkflowRule.builder().id(97L).key("$.k").build())
+                .workflowType(WorkflowType.builder().id(197L).type("TYPE_7").build())
+                .build();
+
+        when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app7")).thenReturn(List.of(entitySetting));
+        when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(7L))
+                .thenReturn(new ArrayList<>(List.of(mapping)));
+        when(workflowRuleAndTypeRepository.findAllByLinkingIdIn(anyList())).thenReturn(List.of(rt));
+
+        WorkFlow result = controller.getWorkFlow("app7");
+
+        Map<?, ?> uiMap = (Map<?, ?>) result.getPluginList().get(0).getUiMap();
+        assertEquals("TYPE_7_1", uiMap.get("id"));
     }
 }
