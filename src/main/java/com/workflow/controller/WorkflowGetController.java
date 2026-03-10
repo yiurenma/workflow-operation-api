@@ -67,7 +67,7 @@ public class WorkflowGetController {
         linkingIdMappingList.sort(Comparator.comparing(WorkflowEntityAndLinkingIdMapping::getLogicOrder));
 
         List<String> linkingIds = linkingIdMappingList.stream()
-                .map(m -> m.getWorkflowRuleAndTypeMapping() != null ? m.getWorkflowRuleAndTypeMapping().getLinkingId() : null)
+                .map(WorkflowEntityAndLinkingIdMapping::getLinkingId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
@@ -76,7 +76,7 @@ public class WorkflowGetController {
         List<Plugin> pluginList = new ArrayList<>();
         for (WorkflowEntityAndLinkingIdMapping mapping : linkingIdMappingList) {
             log.info("Get information for step: {} and remark: {}", mapping.getLogicOrder(), mapping.getRemark());
-            String linkingId = mapping.getWorkflowRuleAndTypeMapping() != null ? mapping.getWorkflowRuleAndTypeMapping().getLinkingId() : null;
+            String linkingId = mapping.getLinkingId();
             List<WorkflowRuleAndType> ruleAndTypeList = linkingId != null ? allRuleAndTypeList.stream()
                     .filter(rt -> linkingId.equals(rt.getLinkingId()))
                     .toList() : List.of();

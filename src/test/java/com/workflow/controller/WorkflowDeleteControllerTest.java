@@ -26,7 +26,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyIterable;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -89,12 +90,10 @@ class WorkflowDeleteControllerTest {
     @Test
     void deleteWorkFlowShouldDeleteMappingsRulesTypesAndEntityWhenNoReports() {
         WorkflowEntitySetting setting = WorkflowEntitySetting.builder().id(11L).applicationName("app").build();
-        WorkflowRuleAndType link1 = WorkflowRuleAndType.builder().linkingId("L1").build();
-        WorkflowRuleAndType link2 = WorkflowRuleAndType.builder().linkingId("L2").build();
         WorkflowEntityAndLinkingIdMapping mapping1 = WorkflowEntityAndLinkingIdMapping.builder()
-                .id(101L).workflowRuleAndTypeMapping(link1).build();
+                .id(101L).linkingId("L1").build();
         WorkflowEntityAndLinkingIdMapping mapping2 = WorkflowEntityAndLinkingIdMapping.builder()
-                .id(102L).workflowRuleAndTypeMapping(link2).build();
+                .id(102L).linkingId("L2").build();
 
         WorkflowRule rule1 = WorkflowRule.builder().id(201L).build();
         WorkflowRule rule2 = WorkflowRule.builder().id(202L).build();
@@ -108,47 +107,44 @@ class WorkflowDeleteControllerTest {
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of(setting));
         when(workflowReportRepository.findByWorkflowEntitySetting_Id(11L)).thenReturn(List.of());
         when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(11L)).thenReturn(List.of(mapping1, mapping2));
-        when(workflowRuleAndTypeRepository.getAllByLinkingId("L1")).thenReturn(List.of(rt1, rt2));
-        when(workflowRuleAndTypeRepository.getAllByLinkingId("L2")).thenReturn(List.of(rt3));
+        when(workflowRuleAndTypeRepository.findAllByLinkingIdIn(anyList())).thenReturn(List.of(rt1, rt2, rt3));
 
         controller.deleteWorkFlow("app");
 
-        ArgumentCaptor<List<Long>> mappingIds = ArgumentCaptor.forClass(List.class);
-        verify(workflowEntityAndLinkingIdMappingRepository).deleteAllByIdInBatch(mappingIds.capture());
-        assertEquals(List.of(101L, 102L), mappingIds.getValue());
-
-        verify(workflowEntitySettingRepository).deleteById(11L);
+        verify(workflowEntityAndLinkingIdMappingRepository).deleteAll(anyIterable());
+        verify(workflowEntitySettingRepository).delete(setting);
 
         ArgumentCaptor<List<Long>> relationIds = ArgumentCaptor.forClass(List.class);
         verify(workflowRuleAndTypeRepository).deleteAllByIdInBatch(relationIds.capture());
-        assertEquals(Set.of(401L), Set.copyOf(relationIds.getValue()));
+        assertEquals(Set.of(401L, 402L, 403L), Set.copyOf(relationIds.getValue()));
 
         ArgumentCaptor<List<Long>> ruleIds = ArgumentCaptor.forClass(List.class);
         verify(workflowRuleRepository).deleteAllByIdInBatch(ruleIds.capture());
-        assertEquals(Set.of(201L), Set.copyOf(ruleIds.getValue()));
+        assertEquals(Set.of(201L, 202L), Set.copyOf(ruleIds.getValue()));
 
         ArgumentCaptor<List<Long>> typeIds = ArgumentCaptor.forClass(List.class);
         verify(workflowTypeRepository).deleteAllByIdInBatch(typeIds.capture());
-        assertEquals(Set.of(301L), Set.copyOf(typeIds.getValue()));
+        assertEquals(Set.of(301L, 302L), Set.copyOf(typeIds.getValue()));
     }
 
     @Test
-    void deleteWorkFlowShouldSkipRuleTypeLookupWhenMappingRelationMissing() {
+    void deleteWorkFlowShouldThrowBadRequestWhenMappingHasNullLinkingId() {
         WorkflowEntitySetting setting = WorkflowEntitySetting.builder().id(12L).applicationName("app").build();
         WorkflowEntityAndLinkingIdMapping mapping = WorkflowEntityAndLinkingIdMapping.builder()
                 .id(103L)
-                .workflowRuleAndTypeMapping(null)
+                .linkingId(null)
                 .build();
 
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of(setting));
         when(workflowReportRepository.findByWorkflowEntitySetting_Id(12L)).thenReturn(List.of());
         when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(12L)).thenReturn(List.of(mapping));
 
-        controller.deleteWorkFlow("app");
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.deleteWorkFlow("app")
+        );
 
-        verify(workflowRuleAndTypeRepository, never()).getAllByLinkingId(org.mockito.ArgumentMatchers.anyString());
-        verify(workflowRuleAndTypeRepository).deleteAllByIdInBatch(List.of());
-        verify(workflowRuleRepository).deleteAllByIdInBatch(List.of());
-        verify(workflowTypeRepository).deleteAllByIdInBatch(List.of());
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("Workflow entity and linking mapping (id=103) has null or blank linkingId", exception.getReason());
     }
 }

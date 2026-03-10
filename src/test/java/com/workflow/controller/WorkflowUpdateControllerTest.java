@@ -58,6 +58,8 @@ class WorkflowUpdateControllerTest {
     private WorkflowTypeRepository workflowTypeRepository;
     @Mock
     private WorkflowGetController workflowGetController;
+    @Mock
+    private WorkflowDeleteController workflowDeleteController;
 
     private ObjectMapper objectMapper;
     private WorkflowUpdateController controller;
@@ -72,6 +74,7 @@ class WorkflowUpdateControllerTest {
                 workflowRuleRepository,
                 workflowTypeRepository,
                 workflowGetController,
+                workflowDeleteController,
                 objectMapper
         );
     }
@@ -144,22 +147,6 @@ class WorkflowUpdateControllerTest {
     void deleteAndAddWorkFlowShouldDeleteOldDataAndSaveNewMappings() {
         WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder().id(10L).applicationName("app").build();
 
-        WorkflowEntityAndLinkingIdMapping existing = WorkflowEntityAndLinkingIdMapping.builder()
-                .id(501L)
-                .workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("OLD").build())
-                .build();
-        WorkflowRule oldRule = WorkflowRule.builder().id(601L).key("$.old").build();
-        WorkflowType oldType = WorkflowType.builder().id(701L).type("OLD_TYPE").build();
-        WorkflowRuleAndType oldRt = WorkflowRuleAndType.builder()
-                .id(801L)
-                .linkingId("OLD")
-                .workflowRule(oldRule)
-                .workflowType(oldType)
-                .build();
-
-        when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(10L)).thenReturn(List.of(existing));
-        when(workflowRuleAndTypeRepository.getAllByLinkingId("OLD")).thenReturn(List.of(oldRt));
-
         AtomicLong ruleId = new AtomicLong(1000L);
         when(workflowRuleRepository.saveAndFlush(any(WorkflowRule.class))).thenAnswer(invocation -> {
             WorkflowRule in = invocation.getArgument(0);
@@ -211,10 +198,7 @@ class WorkflowUpdateControllerTest {
         assertNotNull(entitySetting.getWorkflow());
 
         verify(workflowEntitySettingRepository).saveAndFlush(entitySetting);
-        verify(workflowEntityAndLinkingIdMappingRepository).deleteAllByIdInBatch(List.of(501L));
-        verify(workflowRuleAndTypeRepository).deleteAllByIdInBatch(List.of(801L));
-        verify(workflowRuleRepository).deleteAllByIdInBatch(List.of(601L));
-        verify(workflowTypeRepository).deleteAllByIdInBatch(List.of(701L));
+        verify(workflowDeleteController).deleteWorkflowRulesMappingsAndTypes(entitySetting);
         verify(workflowRuleAndTypeRepository).flush();
         verify(workflowEntityAndLinkingIdMappingRepository).flush();
 
@@ -229,8 +213,7 @@ class WorkflowUpdateControllerTest {
         assertEquals(3, mappingCaptor.getValue().size());
         assertEquals(Set.of("10_2001_1", "10_2002_2", "10_2003_3"),
                 mappingCaptor.getValue().stream()
-                        .map(WorkflowEntityAndLinkingIdMapping::getWorkflowRuleAndTypeMapping)
-                        .map(WorkflowRuleAndType::getLinkingId)
+                        .map(WorkflowEntityAndLinkingIdMapping::getLinkingId)
                         .collect(java.util.stream.Collectors.toSet()));
     }
 
@@ -247,13 +230,13 @@ class WorkflowUpdateControllerTest {
                 workflowRuleRepository,
                 workflowTypeRepository,
                 workflowGetController,
+                workflowDeleteController,
                 failingMapper
         );
 
         WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder().id(20L).applicationName("app").build();
         WorkFlow workFlow = WorkFlow.builder().pluginList(List.of()).build();
 
-        when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(20L)).thenReturn(List.of());
         when(workflowRuleAndTypeRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
         when(workflowEntityAndLinkingIdMappingRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
         doNothing().when(workflowRuleAndTypeRepository).flush();
@@ -266,23 +249,15 @@ class WorkflowUpdateControllerTest {
     }
 
     @Test
-    void deleteAndAddWorkFlowShouldSkipRuleTypeLookupWhenRelationMissing() {
+    void deleteAndAddWorkFlowShouldDelegateDeleteToDeleteController() {
         WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder().id(30L).applicationName("app").build();
         WorkFlow workFlow = WorkFlow.builder().pluginList(List.of()).build();
-        WorkflowEntityAndLinkingIdMapping legacyMapping = WorkflowEntityAndLinkingIdMapping.builder()
-                .id(301L)
-                .workflowRuleAndTypeMapping(null)
-                .build();
 
-        when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(30L))
-                .thenReturn(List.of(legacyMapping));
         when(workflowRuleAndTypeRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
         when(workflowEntityAndLinkingIdMappingRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         controller.deleteAndAddWorkFlow(workFlow, entitySetting);
 
-        verify(workflowRuleAndTypeRepository, never()).getAllByLinkingId(org.mockito.ArgumentMatchers.anyString());
-        verify(workflowEntityAndLinkingIdMappingRepository).deleteAllByIdInBatch(List.of(301L));
-        verify(workflowRuleAndTypeRepository).deleteAllByIdInBatch(List.of());
+        verify(workflowDeleteController).deleteWorkflowRulesMappingsAndTypes(entitySetting);
     }
 }

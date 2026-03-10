@@ -23,9 +23,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 @Slf4j
 @RestController
@@ -63,43 +61,49 @@ public class WorkflowDeleteController {
                     "Cannot delete workflow: reports exist for this application");
         }
 
-        List<WorkflowEntityAndLinkingIdMapping> linkingIdMappingList =
-                workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(entitySettingId);
-
-        Set<WorkflowRule> deleteRuleSet = new HashSet<>();
-        Set<WorkflowType> deleteTypeSet = new HashSet<>();
-        Set<WorkflowRuleAndType> deleteRuleAndTypeSet = new HashSet<>();
-
-        for (WorkflowEntityAndLinkingIdMapping mapping : linkingIdMappingList) {
-            String linkingId = mapping.getWorkflowRuleAndTypeMapping() != null ? mapping.getWorkflowRuleAndTypeMapping().getLinkingId() : null;
-            if (linkingId == null) continue;
-            List<WorkflowRuleAndType> ruleAndTypeList = workflowRuleAndTypeRepository.getAllByLinkingId(linkingId);
-            for (WorkflowRuleAndType rt : ruleAndTypeList) {
-                deleteRuleSet.add(rt.getWorkflowRule());
-                deleteTypeSet.add(rt.getWorkflowType());
-            }
-            deleteRuleAndTypeSet.addAll(ruleAndTypeList);
-        }
-
-        List<Long> mappingIds = linkingIdMappingList.stream().map(WorkflowEntityAndLinkingIdMapping::getId).toList();
-        log.info("Going to delete entity and linking relationship, ID list: {}", mappingIds);
-        workflowEntityAndLinkingIdMappingRepository.deleteAllByIdInBatch(mappingIds);
-
-        List<Long> ruleAndTypeIds = deleteRuleAndTypeSet.stream().map(WorkflowRuleAndType::getId).toList();
-        log.info("Going to delete rule and action relationship, ID list: {}", ruleAndTypeIds);
-        workflowRuleAndTypeRepository.deleteAllByIdInBatch(ruleAndTypeIds);
-
-        List<Long> ruleIds = deleteRuleSet.stream().map(WorkflowRule::getId).toList();
-        log.info("Going to delete rule, ID list: {}", ruleIds);
-        workflowRuleRepository.deleteAllByIdInBatch(ruleIds);
+        deleteWorkflowRulesMappingsAndTypes(entitySetting);
 
         log.info("Going to delete entity: {} {}", applicationName, entitySettingId);
-        workflowEntitySettingRepository.deleteById(entitySettingId);
-
-        List<Long> typeIds = deleteTypeSet.stream().map(WorkflowType::getId).toList();
-        log.info("Going to delete action, ID list: {}", typeIds);
-        workflowTypeRepository.deleteAllByIdInBatch(typeIds);
+        workflowEntitySettingRepository.delete(entitySetting);
 
         log.info("Workflow and entity removed for application: {} (report/record kept)", applicationName);
+    }
+
+    /**
+     * Deletes workflow rules, mappings, and types for the given entity setting.
+     * Does not delete the entity setting itself. Used by update (clear before re-add) and delete (before removing entity).
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRED)
+    public void deleteWorkflowRulesMappingsAndTypes(WorkflowEntitySetting entitySetting) {
+        List<WorkflowEntityAndLinkingIdMapping> mappings =
+                workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(entitySetting.getId());
+
+        for (WorkflowEntityAndLinkingIdMapping m : mappings) {
+            if (m.getLinkingId() == null || m.getLinkingId().isBlank()) {
+                log.error("Workflow entity and linking mapping has null or blank linkingId. Mapping: id={}, logicOrder={}, remark={}",
+                        m.getId(), m.getLogicOrder(), m.getRemark());
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Workflow entity and linking mapping (id=" + m.getId() + ") has null or blank linkingId");
+            }
+        }
+        List<String> linkingIds = mappings.stream().map(WorkflowEntityAndLinkingIdMapping::getLinkingId).distinct().toList();
+
+        List<WorkflowRuleAndType> allRuleAndTypes = workflowRuleAndTypeRepository.findAllByLinkingIdIn(linkingIds);
+
+        workflowEntityAndLinkingIdMappingRepository.deleteAll(mappings);
+        workflowEntityAndLinkingIdMappingRepository.flush();
+
+        List<Long> ruleAndTypeIds = allRuleAndTypes.stream().map(WorkflowRuleAndType::getId).toList();
+        workflowRuleAndTypeRepository.deleteAllByIdInBatch(ruleAndTypeIds);
+
+        List<Long> ruleIds = allRuleAndTypes.stream().map(rt -> rt.getWorkflowRule().getId()).distinct().toList();
+        workflowRuleRepository.deleteAllByIdInBatch(ruleIds);
+
+        List<Long> typeIds = allRuleAndTypes.stream().map(rt -> rt.getWorkflowType().getId()).distinct().toList();
+        workflowTypeRepository.deleteAllByIdInBatch(typeIds);
+        
+        entitySetting.setTrackingServiceProviderActionId(null);
+        entitySetting.setTrackingServiceProviderActionId2(null);
+        workflowEntitySettingRepository.saveAndFlush(entitySetting);
     }
 }
