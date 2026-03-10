@@ -37,6 +37,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -76,8 +77,41 @@ class WorkflowUpdateControllerTest {
     }
 
     @Test
-    void updateWorkFlowShouldThrowBadRequestWhenApplicationDoesNotExistExactlyOnce() {
+    void updateWorkFlowShouldThrowBadRequestWhenCreatingWithoutBody() {
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.updateWorkFlow("app", null)
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+    }
+
+    @Test
+    void updateWorkFlowShouldCreateEntityWhenApplicationMissingAndBodyProvided() {
+        WorkFlow input = WorkFlow.builder().pluginList(List.of()).build();
+        WorkFlow expected = WorkFlow.builder().pluginList(List.of()).uiMapList(List.of("ok")).build();
+        WorkflowUpdateController spyController = spy(controller);
+
+        when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of());
+        doNothing().when(spyController).deleteAndAddWorkFlow(eq(input), any(WorkflowEntitySetting.class));
+        when(workflowGetController.getWorkFlow("app")).thenReturn(expected);
+
+        WorkFlow result = spyController.updateWorkFlow("app", input);
+
+        assertEquals(expected, result);
+        ArgumentCaptor<WorkflowEntitySetting> captor = ArgumentCaptor.forClass(WorkflowEntitySetting.class);
+        verify(spyController).deleteAndAddWorkFlow(eq(input), captor.capture());
+        assertEquals("app", captor.getValue().getApplicationName());
+    }
+
+    @Test
+    void updateWorkFlowShouldThrowBadRequestWhenApplicationExistsMoreThanOnce() {
+        when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of(
+                WorkflowEntitySetting.builder().id(1L).applicationName("app").build(),
+                WorkflowEntitySetting.builder().id(2L).applicationName("app").build()
+        ));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -112,7 +146,7 @@ class WorkflowUpdateControllerTest {
 
         WorkflowEntityAndLinkingIdMapping existing = WorkflowEntityAndLinkingIdMapping.builder()
                 .id(501L)
-                .workflowRuleAndTypeLinkingId("OLD")
+                .workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("OLD").build())
                 .build();
         WorkflowRule oldRule = WorkflowRule.builder().id(601L).key("$.old").build();
         WorkflowType oldType = WorkflowType.builder().id(701L).type("OLD_TYPE").build();
@@ -195,7 +229,8 @@ class WorkflowUpdateControllerTest {
         assertEquals(3, mappingCaptor.getValue().size());
         assertEquals(Set.of("10_2001_1", "10_2002_2", "10_2003_3"),
                 mappingCaptor.getValue().stream()
-                        .map(WorkflowEntityAndLinkingIdMapping::getWorkflowRuleAndTypeLinkingId)
+                        .map(WorkflowEntityAndLinkingIdMapping::getWorkflowRuleAndTypeMapping)
+                        .map(WorkflowRuleAndType::getLinkingId)
                         .collect(java.util.stream.Collectors.toSet()));
     }
 
@@ -228,5 +263,26 @@ class WorkflowUpdateControllerTest {
 
         assertNull(entitySetting.getWorkflow());
         verify(workflowEntitySettingRepository).saveAndFlush(entitySetting);
+    }
+
+    @Test
+    void deleteAndAddWorkFlowShouldSkipRuleTypeLookupWhenRelationMissing() {
+        WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder().id(30L).applicationName("app").build();
+        WorkFlow workFlow = WorkFlow.builder().pluginList(List.of()).build();
+        WorkflowEntityAndLinkingIdMapping legacyMapping = WorkflowEntityAndLinkingIdMapping.builder()
+                .id(301L)
+                .workflowRuleAndTypeMapping(null)
+                .build();
+
+        when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(30L))
+                .thenReturn(List.of(legacyMapping));
+        when(workflowRuleAndTypeRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(workflowEntityAndLinkingIdMappingRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        controller.deleteAndAddWorkFlow(workFlow, entitySetting);
+
+        verify(workflowRuleAndTypeRepository, never()).getAllByLinkingId(org.mockito.ArgumentMatchers.anyString());
+        verify(workflowEntityAndLinkingIdMappingRepository).deleteAllByIdInBatch(List.of(301L));
+        verify(workflowRuleAndTypeRepository).deleteAllByIdInBatch(List.of());
     }
 }

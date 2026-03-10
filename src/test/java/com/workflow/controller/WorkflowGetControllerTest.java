@@ -90,13 +90,13 @@ class WorkflowGetControllerTest {
                 .id(12L)
                 .logicOrder(2)
                 .remark("second")
-                .workflowRuleAndTypeLinkingId("L2")
+                .workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("L2").build())
                 .build();
         WorkflowEntityAndLinkingIdMapping mapping1 = WorkflowEntityAndLinkingIdMapping.builder()
                 .id(11L)
                 .logicOrder(1)
                 .remark("first")
-                .workflowRuleAndTypeLinkingId("L1")
+                .workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("L1").build())
                 .build();
 
         WorkflowType encodedType = WorkflowType.builder()
@@ -148,13 +148,13 @@ class WorkflowGetControllerTest {
                 .id(21L)
                 .logicOrder(1)
                 .remark("first")
-                .workflowRuleAndTypeLinkingId("A")
+                .workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("A").build())
                 .build();
         WorkflowEntityAndLinkingIdMapping mapping2 = WorkflowEntityAndLinkingIdMapping.builder()
                 .id(22L)
                 .logicOrder(2)
                 .remark("second")
-                .workflowRuleAndTypeLinkingId("B")
+                .workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("B").build())
                 .build();
 
         WorkflowRuleAndType rtA = WorkflowRuleAndType.builder()
@@ -233,11 +233,11 @@ class WorkflowGetControllerTest {
                 .build();
 
         WorkflowEntityAndLinkingIdMapping mapping1 = WorkflowEntityAndLinkingIdMapping.builder()
-                .id(41L).logicOrder(1).workflowRuleAndTypeLinkingId("L1").build();
+                .id(41L).logicOrder(1).workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("L1").build()).build();
         WorkflowEntityAndLinkingIdMapping mapping2 = WorkflowEntityAndLinkingIdMapping.builder()
-                .id(42L).logicOrder(2).workflowRuleAndTypeLinkingId("L2").build();
+                .id(42L).logicOrder(2).workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("L2").build()).build();
         WorkflowEntityAndLinkingIdMapping mapping3 = WorkflowEntityAndLinkingIdMapping.builder()
-                .id(43L).logicOrder(3).workflowRuleAndTypeLinkingId("L3").build();
+                .id(43L).logicOrder(3).workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("L3").build()).build();
 
         WorkflowRuleAndType rt1 = WorkflowRuleAndType.builder()
                 .id(901L).linkingId("L1").workflowRule(WorkflowRule.builder().id(1L).key("$.1").build())
@@ -273,7 +273,7 @@ class WorkflowGetControllerTest {
                 .build();
 
         WorkflowEntityAndLinkingIdMapping mapping = WorkflowEntityAndLinkingIdMapping.builder()
-                .id(51L).logicOrder(1).workflowRuleAndTypeLinkingId("L5").build();
+                .id(51L).logicOrder(1).workflowRuleAndTypeMapping(WorkflowRuleAndType.builder().linkingId("L5").build()).build();
         WorkflowRuleAndType rt = WorkflowRuleAndType.builder()
                 .id(951L).linkingId("L5").workflowRule(WorkflowRule.builder().id(9L).key("$.x").build())
                 .workflowType(WorkflowType.builder().id(19L).type("TYPE_X").build()).build();

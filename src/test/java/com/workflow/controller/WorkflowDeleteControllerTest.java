@@ -26,6 +26,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -88,10 +89,12 @@ class WorkflowDeleteControllerTest {
     @Test
     void deleteWorkFlowShouldDeleteMappingsRulesTypesAndEntityWhenNoReports() {
         WorkflowEntitySetting setting = WorkflowEntitySetting.builder().id(11L).applicationName("app").build();
+        WorkflowRuleAndType link1 = WorkflowRuleAndType.builder().linkingId("L1").build();
+        WorkflowRuleAndType link2 = WorkflowRuleAndType.builder().linkingId("L2").build();
         WorkflowEntityAndLinkingIdMapping mapping1 = WorkflowEntityAndLinkingIdMapping.builder()
-                .id(101L).workflowRuleAndTypeLinkingId("L1").build();
+                .id(101L).workflowRuleAndTypeMapping(link1).build();
         WorkflowEntityAndLinkingIdMapping mapping2 = WorkflowEntityAndLinkingIdMapping.builder()
-                .id(102L).workflowRuleAndTypeLinkingId("L2").build();
+                .id(102L).workflowRuleAndTypeMapping(link2).build();
 
         WorkflowRule rule1 = WorkflowRule.builder().id(201L).build();
         WorkflowRule rule2 = WorkflowRule.builder().id(202L).build();
@@ -127,5 +130,25 @@ class WorkflowDeleteControllerTest {
         ArgumentCaptor<List<Long>> typeIds = ArgumentCaptor.forClass(List.class);
         verify(workflowTypeRepository).deleteAllByIdInBatch(typeIds.capture());
         assertEquals(Set.of(301L), Set.copyOf(typeIds.getValue()));
+    }
+
+    @Test
+    void deleteWorkFlowShouldSkipRuleTypeLookupWhenMappingRelationMissing() {
+        WorkflowEntitySetting setting = WorkflowEntitySetting.builder().id(12L).applicationName("app").build();
+        WorkflowEntityAndLinkingIdMapping mapping = WorkflowEntityAndLinkingIdMapping.builder()
+                .id(103L)
+                .workflowRuleAndTypeMapping(null)
+                .build();
+
+        when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of(setting));
+        when(workflowReportRepository.findByWorkflowEntitySetting_Id(12L)).thenReturn(List.of());
+        when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(12L)).thenReturn(List.of(mapping));
+
+        controller.deleteWorkFlow("app");
+
+        verify(workflowRuleAndTypeRepository, never()).getAllByLinkingId(org.mockito.ArgumentMatchers.anyString());
+        verify(workflowRuleAndTypeRepository).deleteAllByIdInBatch(List.of());
+        verify(workflowRuleRepository).deleteAllByIdInBatch(List.of());
+        verify(workflowTypeRepository).deleteAllByIdInBatch(List.of());
     }
 }
