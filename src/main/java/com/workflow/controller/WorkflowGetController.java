@@ -67,8 +67,7 @@ public class WorkflowGetController {
         linkingIdMappingList.sort(Comparator.comparing(WorkflowEntityAndLinkingIdMapping::getLogicOrder));
 
         List<String> linkingIds = linkingIdMappingList.stream()
-                .map(m -> m.getWorkflowRuleAndTypeMapping() != null ? m.getWorkflowRuleAndTypeMapping().getLinkingId() : null)
-                .filter(Objects::nonNull)
+                .map(WorkflowEntityAndLinkingIdMapping::getWorkflowRuleAndTypeLinkingId)
                 .distinct()
                 .toList();
         List<WorkflowRuleAndType> allRuleAndTypeList = workflowRuleAndTypeRepository.findAllByLinkingIdIn(linkingIds);
@@ -76,10 +75,9 @@ public class WorkflowGetController {
         List<Plugin> pluginList = new ArrayList<>();
         for (WorkflowEntityAndLinkingIdMapping mapping : linkingIdMappingList) {
             log.info("Get information for step: {} and remark: {}", mapping.getLogicOrder(), mapping.getRemark());
-            String linkingId = mapping.getWorkflowRuleAndTypeMapping() != null ? mapping.getWorkflowRuleAndTypeMapping().getLinkingId() : null;
-            List<WorkflowRuleAndType> ruleAndTypeList = linkingId != null ? allRuleAndTypeList.stream()
-                    .filter(rt -> linkingId.equals(rt.getLinkingId()))
-                    .toList() : List.of();
+            List<WorkflowRuleAndType> ruleAndTypeList = allRuleAndTypeList.stream()
+                    .filter(rt -> rt.getLinkingId().equals(mapping.getWorkflowRuleAndTypeLinkingId()))
+                    .toList();
 
             if (!ruleAndTypeList.isEmpty()) {
                 WorkflowType typeView = ruleAndTypeList.get(0).getWorkflowType();
@@ -103,7 +101,7 @@ public class WorkflowGetController {
                 pluginList.add(Plugin.builder()
                         .id(mapping.getLogicOrder())
                         .description(mapping.getRemark())
-                        .linkingIdOfRuleListAndAction(linkingId)
+                        .linkingIdOfRuleListAndAction(mapping.getWorkflowRuleAndTypeLinkingId())
                         .action(copyType)
                         .ruleList(ruleAndTypeList.stream().map(WorkflowRuleAndType::getWorkflowRule).toList())
                         .uiMap(uiMap)
@@ -113,7 +111,7 @@ public class WorkflowGetController {
                 pluginList.add(Plugin.builder()
                         .id(mapping.getLogicOrder())
                         .description(mapping.getRemark())
-                        .linkingIdOfRuleListAndAction(linkingId)
+                        .linkingIdOfRuleListAndAction(mapping.getWorkflowRuleAndTypeLinkingId())
                         .uiMap(createDefaultUiMap(mapping.getLogicOrder(), "Unknown"))
                         .build());
             }

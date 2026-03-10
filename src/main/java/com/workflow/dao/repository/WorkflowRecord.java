@@ -49,9 +49,9 @@ public class WorkflowRecord {
     private String workflowLinkingId;
     @Column(name = "tracking_number")
     private String trackingNumber;
-    @Column(columnDefinition = "TEXT")
+    @Lob
     private String workflowTransactionDetails;
-    @Column(columnDefinition = "TEXT")
+    @Lob
     private String workflowResponseFromProvider;
     private String workflowProvider;
     private String customerId;
@@ -61,7 +61,7 @@ public class WorkflowRecord {
     private String emailStatus;
     private String pushNotificationStatus;
     private String pushNotificationDetailStatus;
-    @Column(columnDefinition = "TEXT")
+    @Lob
     private String providerDescription;
     @Column(nullable = true)
     private Integer retryTimes;

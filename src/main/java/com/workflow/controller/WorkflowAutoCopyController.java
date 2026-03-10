@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
@@ -31,7 +30,6 @@ public class WorkflowAutoCopyController {
 
     @PostMapping(value = "/workflow/autoCopy", consumes = MediaType.APPLICATION_JSON_VALUE)
     public WorkFlow autoCopyWorkFlow(
-            @RequestHeader(HttpHeaders.CONTENT_TYPE) @Parameter(example = "application/json", required = true) @NotNull String contentType,
             @RequestParam(required = true) @Parameter(example = "UK_DRFI") @NotNull String fromApplicationName,
             @RequestParam(required = true) @Parameter(example = "UK_DRFI") @NotNull String toApplicationName) {
 

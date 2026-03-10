@@ -71,9 +71,8 @@ public class WorkflowDeleteController {
         Set<WorkflowRuleAndType> deleteRuleAndTypeSet = new HashSet<>();
 
         for (WorkflowEntityAndLinkingIdMapping mapping : linkingIdMappingList) {
-            String linkingId = mapping.getWorkflowRuleAndTypeMapping() != null ? mapping.getWorkflowRuleAndTypeMapping().getLinkingId() : null;
-            if (linkingId == null) continue;
-            List<WorkflowRuleAndType> ruleAndTypeList = workflowRuleAndTypeRepository.getAllByLinkingId(linkingId);
+            List<WorkflowRuleAndType> ruleAndTypeList =
+                    workflowRuleAndTypeRepository.getAllByLinkingId(mapping.getWorkflowRuleAndTypeLinkingId());
             for (WorkflowRuleAndType rt : ruleAndTypeList) {
                 deleteRuleSet.add(rt.getWorkflowRule());
                 deleteTypeSet.add(rt.getWorkflowType());

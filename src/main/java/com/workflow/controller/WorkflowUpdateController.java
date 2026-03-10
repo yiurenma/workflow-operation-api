@@ -46,22 +46,12 @@ public class WorkflowUpdateController {
         List<WorkflowEntitySetting> entitySettingList =
                 workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName(applicationName);
 
-        WorkflowEntitySetting entitySetting;
-        if (entitySettingList.isEmpty()) {
-            if (workFlow == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Workflow body is required when creating a new workflow for application: " + applicationName);
-            }
-            entitySetting = WorkflowEntitySetting.builder()
-                    .applicationName(applicationName)
-                    .enabled(true)
-                    .build();
-        } else if (entitySettingList.size() > 1) {
+        if (entitySettingList.size() != 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Application name must exist exactly once; found: " + entitySettingList.size());
-        } else {
-            entitySetting = entitySettingList.get(0);
         }
+
+        WorkflowEntitySetting entitySetting = entitySettingList.get(0);
         boolean duplicateKeyExceptionGoingOn = true;
         while (duplicateKeyExceptionGoingOn) {
             try {
@@ -92,9 +82,8 @@ public class WorkflowUpdateController {
 
         log.info("Begin delete action and rule information");
         for (WorkflowEntityAndLinkingIdMapping mapping : linkingIdMappingList) {
-            String linkingId = mapping.getWorkflowRuleAndTypeMapping() != null ? mapping.getWorkflowRuleAndTypeMapping().getLinkingId() : null;
-            if (linkingId == null) continue;
-            List<WorkflowRuleAndType> ruleAndTypeList = workflowRuleAndTypeRepository.getAllByLinkingId(linkingId);
+            List<WorkflowRuleAndType> ruleAndTypeList =
+                    workflowRuleAndTypeRepository.getAllByLinkingId(mapping.getWorkflowRuleAndTypeLinkingId());
             for (WorkflowRuleAndType rt : ruleAndTypeList) {
                 deleteRuleSet.add(rt.getWorkflowRule());
                 deleteTypeSet.add(rt.getWorkflowType());
@@ -158,11 +147,10 @@ public class WorkflowUpdateController {
                             .build());
                     log.info("Save rule and action linking: {} {} {}", savedRule.getId(), savedType.getId(), linkingId);
                 }
-                WorkflowRuleAndType ruleAndTypeToLink = savedRuleAndTypeList.get(savedRuleAndTypeList.size() - 1);
                 savedLinkingIdMappingList.add(WorkflowEntityAndLinkingIdMapping.builder()
                         .logicOrder(plugin.getId())
                         .workflowEntitySetting(entitySetting)
-                        .workflowRuleAndTypeMapping(ruleAndTypeToLink)
+                        .workflowRuleAndTypeLinkingId(linkingId)
                         .remark(plugin.getDescription())
                         .build());
                 log.info("Save entity and linking: {} {}", entitySetting.getApplicationName(), linkingId);
@@ -176,11 +164,10 @@ public class WorkflowUpdateController {
                         .workflowType(savedType)
                         .linkingId(linkingId)
                         .build());
-                WorkflowRuleAndType ruleAndTypeToLink = savedRuleAndTypeList.get(savedRuleAndTypeList.size() - 1);
                 savedLinkingIdMappingList.add(WorkflowEntityAndLinkingIdMapping.builder()
                         .logicOrder(plugin.getId())
                         .workflowEntitySetting(entitySetting)
-                        .workflowRuleAndTypeMapping(ruleAndTypeToLink)
+                        .workflowRuleAndTypeLinkingId(linkingId)
                         .remark(plugin.getDescription())
                         .build());
             }
