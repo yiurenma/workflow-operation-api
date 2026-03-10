@@ -65,8 +65,7 @@ public class WorkflowEntitySetting extends Auditable implements Serializable {
     @Comment("Whether this entity setting is active")
     private boolean enabled;
 
-    @Lob
-    @Column(length = 100000)
+    @Column(columnDefinition = "TEXT")
     @Comment("Base64-encoded workflow UI map (plugin list, uiMap, uiMapList)")
     private String workflow;
 }

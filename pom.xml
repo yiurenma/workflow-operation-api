@@ -65,6 +65,12 @@
             <artifactId>spring-data-envers</artifactId>
         </dependency>
 
+        <!-- Jackson Joda module - for JodaModule in ObjectMapper -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-joda</artifactId>
+        </dependency>
+
         <!-- Jayway JsonPath - for WorkflowRule key (JSONPath validation in runtime data) -->
         <dependency>
             <groupId>com.jayway.jsonpath</groupId>

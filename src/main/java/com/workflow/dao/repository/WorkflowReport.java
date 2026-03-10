@@ -42,11 +42,11 @@ public class WorkflowReport extends Auditable implements Serializable {
     @Column(name = "TIMEZONE", nullable = false)
     private String timezone;
     private String emailTitle;
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String emailBody;
     private String emailAttachmentFileName;
     private String emailReceiptAddressList;
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String emailAttachmentContent;
     private String password;
 }
