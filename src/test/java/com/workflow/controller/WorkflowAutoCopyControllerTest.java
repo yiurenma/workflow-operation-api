@@ -48,7 +48,34 @@ class WorkflowAutoCopyControllerTest {
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> controller.autoCopyWorkFlow("application/json", "from", "to")
+                () -> controller.autoCopyWorkFlow("from", "to")
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+    }
+
+    @Test
+    void autoCopyWorkFlowShouldThrowBadRequestWhenSourceAndTargetAreSame() {
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.autoCopyWorkFlow("same", "same")
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+    }
+
+    @Test
+    void autoCopyWorkFlowShouldThrowBadRequestWhenTargetExistsMoreThanOnce() {
+        WorkflowEntitySetting original = WorkflowEntitySetting.builder().id(1L).applicationName("from").build();
+        when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("from")).thenReturn(List.of(original));
+        when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("to")).thenReturn(List.of(
+                WorkflowEntitySetting.builder().id(2L).applicationName("to").build(),
+                WorkflowEntitySetting.builder().id(3L).applicationName("to").build()
+        ));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.autoCopyWorkFlow("from", "to")
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
@@ -67,16 +94,17 @@ class WorkflowAutoCopyControllerTest {
         WorkFlow expected = WorkFlow.builder().pluginList(List.of()).uiMapList(List.of("ok")).build();
 
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("from")).thenReturn(List.of(original));
-        when(workflowEntitySettingRepository.save(any(WorkflowEntitySetting.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("to")).thenReturn(List.of());
+        when(workflowEntitySettingRepository.saveAndFlush(any(WorkflowEntitySetting.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(workflowGetController.getWorkFlow("from")).thenReturn(source);
         when(workflowUpdateController.updateWorkFlow("to", source)).thenReturn(expected);
 
-        WorkFlow result = controller.autoCopyWorkFlow("application/json", "from", "to");
+        WorkFlow result = controller.autoCopyWorkFlow("from", "to");
 
         assertEquals(expected, result);
 
         ArgumentCaptor<WorkflowEntitySetting> captor = ArgumentCaptor.forClass(WorkflowEntitySetting.class);
-        verify(workflowEntitySettingRepository).save(captor.capture());
+        verify(workflowEntitySettingRepository).saveAndFlush(captor.capture());
         WorkflowEntitySetting saved = captor.getValue();
 
         assertEquals(null, saved.getId());

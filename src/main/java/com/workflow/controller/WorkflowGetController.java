@@ -11,7 +11,10 @@ import com.workflow.dao.repository.WorkflowRuleAndType;
 import com.workflow.dao.repository.WorkflowRuleAndTypeRepository;
 import com.workflow.dao.repository.WorkflowType;
 import com.workflow.common.util.Base64Util;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -38,6 +42,14 @@ public class WorkflowGetController {
     private final WorkflowRuleAndTypeRepository workflowRuleAndTypeRepository;
     private final ObjectMapper objectMapper;
 
+    @Operation(
+            summary = "Get workflow by application name",
+            description = "Returns the current workflow definition including plugin list and UI metadata."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Workflow loaded successfully"),
+            @ApiResponse(responseCode = "400", description = "Application name does not exist exactly once")
+    })
     @GetMapping(value = "/workflow", produces = MediaType.APPLICATION_JSON_VALUE)
     public WorkFlow getWorkFlow(
             @RequestParam(required = true) @Parameter(example = "UK_DRFI", required = true,
@@ -71,26 +83,25 @@ public class WorkflowGetController {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        List<WorkflowRuleAndType> allRuleAndTypeList = workflowRuleAndTypeRepository.findAllByLinkingIdIn(linkingIds);
+        List<WorkflowRuleAndType> allRuleAndTypeList = linkingIds.isEmpty()
+                ? List.of()
+                : workflowRuleAndTypeRepository.findAllByLinkingIdIn(linkingIds);
+        // Group once to avoid O(n²) repeated filtering by linkingId in the loop.
+        Map<String, List<WorkflowRuleAndType>> ruleAndTypeByLinkingId = allRuleAndTypeList.stream()
+                .filter(rt -> rt.getLinkingId() != null)
+                .collect(Collectors.groupingBy(WorkflowRuleAndType::getLinkingId));
 
         List<Plugin> pluginList = new ArrayList<>();
         for (WorkflowEntityAndLinkingIdMapping mapping : linkingIdMappingList) {
             log.info("Get information for step: {} and remark: {}", mapping.getLogicOrder(), mapping.getRemark());
             String linkingId = mapping.getLinkingId();
-            List<WorkflowRuleAndType> ruleAndTypeList = linkingId != null ? allRuleAndTypeList.stream()
-                    .filter(rt -> linkingId.equals(rt.getLinkingId()))
-                    .toList() : List.of();
+            List<WorkflowRuleAndType> ruleAndTypeList = linkingId != null
+                    ? ruleAndTypeByLinkingId.getOrDefault(linkingId, List.of())
+                    : List.of();
 
             if (!ruleAndTypeList.isEmpty()) {
                 WorkflowType typeView = ruleAndTypeList.get(0).getWorkflowType();
-                WorkflowType copyType = WorkflowType.builder().build();
-                org.springframework.beans.BeanUtils.copyProperties(typeView, copyType);
-                copyType.setElseLogic(Base64Util.base64Decode(typeView.getElseLogic(), true, objectMapper));
-                copyType.setHttpRequestUrlWithQueryParameter(Base64Util.base64Decode(typeView.getHttpRequestUrlWithQueryParameter(), false, objectMapper));
-                copyType.setInternalHttpRequestUrlWithQueryParameter(Base64Util.base64Decode(typeView.getInternalHttpRequestUrlWithQueryParameter(), false, objectMapper));
-                copyType.setHttpRequestHeaders(Base64Util.base64Decode(typeView.getHttpRequestHeaders(), true, objectMapper));
-                copyType.setHttpRequestBody(Base64Util.base64Decode(typeView.getHttpRequestBody(), true, objectMapper));
-                copyType.setTrackingNumberSchemaInHttpResponse(Base64Util.base64Decode(typeView.getTrackingNumberSchemaInHttpResponse(), true, objectMapper));
+                WorkflowType copyType = copyAndDecodeWorkflowType(typeView);
 
                 Object uiMap = currentWorkFlow != null && currentWorkFlow.getPluginList() != null
                         ? currentWorkFlow.getPluginList().stream()
@@ -134,12 +145,25 @@ public class WorkflowGetController {
     }
 
     private Object createDefaultUiMap(Integer id, String type) {
+        String normalizedType = StringUtils.hasText(type) ? type : "Unknown";
         Map<String, Object> uiMap = new LinkedHashMap<>();
-        uiMap.put("id", type + "_" + id);
-        uiMap.put("type", type);
+        uiMap.put("id", normalizedType + "_" + id);
+        uiMap.put("type", normalizedType);
         uiMap.put("position", Map.of("x", 100, "y", 100 * (id != null ? id : 0)));
         uiMap.put("measured", Map.of("width", 160, "height", 38));
         return uiMap;
+    }
+
+    private WorkflowType copyAndDecodeWorkflowType(WorkflowType source) {
+        WorkflowType copyType = WorkflowType.builder().build();
+        org.springframework.beans.BeanUtils.copyProperties(source, copyType);
+        copyType.setElseLogic(Base64Util.base64Decode(source.getElseLogic(), true, objectMapper));
+        copyType.setHttpRequestUrlWithQueryParameter(Base64Util.base64Decode(source.getHttpRequestUrlWithQueryParameter(), false, objectMapper));
+        copyType.setInternalHttpRequestUrlWithQueryParameter(Base64Util.base64Decode(source.getInternalHttpRequestUrlWithQueryParameter(), false, objectMapper));
+        copyType.setHttpRequestHeaders(Base64Util.base64Decode(source.getHttpRequestHeaders(), true, objectMapper));
+        copyType.setHttpRequestBody(Base64Util.base64Decode(source.getHttpRequestBody(), true, objectMapper));
+        copyType.setTrackingNumberSchemaInHttpResponse(Base64Util.base64Decode(source.getTrackingNumberSchemaInHttpResponse(), true, objectMapper));
+        return copyType;
     }
 
     @SuppressWarnings("unchecked")

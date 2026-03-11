@@ -144,6 +144,27 @@ class WorkflowUpdateControllerTest {
     }
 
     @Test
+    void updateWorkFlowShouldThrowConflictWhenDuplicateKeyKeepsFailing() {
+        WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder().id(1L).applicationName("app").build();
+        WorkFlow input = WorkFlow.builder().pluginList(List.of()).build();
+
+        WorkflowUpdateController spyController = spy(controller);
+        when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of(entitySetting));
+        doThrow(new DataIntegrityViolationException("dup-1"))
+                .doThrow(new DataIntegrityViolationException("dup-2"))
+                .doThrow(new DataIntegrityViolationException("dup-3"))
+                .when(spyController).deleteAndAddWorkFlow(eq(input), eq(entitySetting));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> spyController.updateWorkFlow("app", input)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(spyController, times(3)).deleteAndAddWorkFlow(input, entitySetting);
+    }
+
+    @Test
     void deleteAndAddWorkFlowShouldDeleteOldDataAndSaveNewMappings() {
         WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder().id(10L).applicationName("app").build();
 
