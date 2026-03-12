@@ -111,6 +111,13 @@ public class WorkflowDeleteController {
         workflowEntityAndLinkingIdMappingRepository.deleteAll(mappings);
         workflowEntityAndLinkingIdMappingRepository.flush();
 
+        // Null WorkflowType FK references on the entity setting BEFORE deleting the types.
+        // Deleting a WorkflowType that is still referenced by the entity setting would violate
+        // the FK constraint enforced by the database at statement execution time.
+        entitySetting.setTrackingServiceProviderActionId(null);
+        entitySetting.setTrackingServiceProviderActionId2(null);
+        workflowEntitySettingRepository.saveAndFlush(entitySetting);
+
         List<Long> ruleAndTypeIds = allRuleAndTypes.stream().map(WorkflowRuleAndType::getId).toList();
         if (!ruleAndTypeIds.isEmpty()) {
             workflowRuleAndTypeRepository.deleteAllByIdInBatch(ruleAndTypeIds);
@@ -125,9 +132,5 @@ public class WorkflowDeleteController {
         if (!typeIds.isEmpty()) {
             workflowTypeRepository.deleteAllByIdInBatch(typeIds);
         }
-        
-        entitySetting.setTrackingServiceProviderActionId(null);
-        entitySetting.setTrackingServiceProviderActionId2(null);
-        workflowEntitySettingRepository.saveAndFlush(entitySetting);
     }
 }
