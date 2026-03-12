@@ -40,6 +40,12 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Micrometer Tracing (Spring Cloud Trace style correlation) -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-brave</artifactId>
+        </dependency>
+
         <!-- Spring Data JPA - for low-code data-driven apps -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -98,6 +104,20 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Logbook - HTTP request/response logging -->
+        <dependency>
+            <groupId>org.zalando</groupId>
+            <artifactId>logbook-spring-boot-starter</artifactId>
+            <version>4.0.2</version>
+        </dependency>
+
+        <!-- P6Spy - SQL logging -->
+        <dependency>
+            <groupId>p6spy</groupId>
+            <artifactId>p6spy</artifactId>
+            <version>3.9.1</version>
         </dependency>
 
         <!-- Lombok - reduce boilerplate (low-code friendly) -->
