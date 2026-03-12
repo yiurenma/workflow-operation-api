@@ -143,6 +143,8 @@ class WorkflowUpdateControllerTest {
     @Test
     void deleteAndAddWorkFlowShouldDeleteOldDataAndSaveNewMappings() {
         WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder().id(10L).applicationName("app").build();
+        when(workflowEntitySettingRepository.saveAndFlush(any(WorkflowEntitySetting.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         WorkflowEntityAndLinkingIdMapping existing = WorkflowEntityAndLinkingIdMapping.builder()
                 .id(501L)
@@ -252,6 +254,8 @@ class WorkflowUpdateControllerTest {
 
         WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder().id(20L).applicationName("app").build();
         WorkFlow workFlow = WorkFlow.builder().pluginList(List.of()).build();
+        when(workflowEntitySettingRepository.saveAndFlush(any(WorkflowEntitySetting.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(20L)).thenReturn(List.of());
         when(workflowRuleAndTypeRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -269,6 +273,8 @@ class WorkflowUpdateControllerTest {
     void deleteAndAddWorkFlowShouldSkipRuleTypeLookupWhenRelationMissing() {
         WorkflowEntitySetting entitySetting = WorkflowEntitySetting.builder().id(30L).applicationName("app").build();
         WorkFlow workFlow = WorkFlow.builder().pluginList(List.of()).build();
+        when(workflowEntitySettingRepository.saveAndFlush(any(WorkflowEntitySetting.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         WorkflowEntityAndLinkingIdMapping legacyMapping = WorkflowEntityAndLinkingIdMapping.builder()
                 .id(301L)
                 .workflowRuleAndTypeMapping(null)

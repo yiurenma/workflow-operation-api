@@ -81,7 +81,7 @@ public class WorkflowUpdateController {
         } catch (Exception e) {
             entitySetting.setWorkflow(null);
         }
-        workflowEntitySettingRepository.saveAndFlush(entitySetting);
+        entitySetting = workflowEntitySettingRepository.saveAndFlush(entitySetting);
 
         List<WorkflowEntityAndLinkingIdMapping> linkingIdMappingList =
                 workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(entitySetting.getId());

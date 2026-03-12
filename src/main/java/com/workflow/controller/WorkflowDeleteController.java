@@ -13,6 +13,8 @@ import com.workflow.dao.repository.WorkflowType;
 import com.workflow.dao.repository.WorkflowTypeRepository;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +43,8 @@ public class WorkflowDeleteController {
     private final WorkflowRuleAndTypeRepository workflowRuleAndTypeRepository;
     private final WorkflowRuleRepository workflowRuleRepository;
     private final WorkflowTypeRepository workflowTypeRepository;
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Transactional
     @DeleteMapping(value = "/workflow", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -84,22 +88,32 @@ public class WorkflowDeleteController {
         List<Long> mappingIds = linkingIdMappingList.stream().map(WorkflowEntityAndLinkingIdMapping::getId).toList();
         log.info("Going to delete entity and linking relationship, ID list: {}", mappingIds);
         workflowEntityAndLinkingIdMappingRepository.deleteAllByIdInBatch(mappingIds);
+        clearPersistenceContextIfAvailable();
 
         List<Long> ruleAndTypeIds = deleteRuleAndTypeSet.stream().map(WorkflowRuleAndType::getId).toList();
         log.info("Going to delete rule and action relationship, ID list: {}", ruleAndTypeIds);
         workflowRuleAndTypeRepository.deleteAllByIdInBatch(ruleAndTypeIds);
+        clearPersistenceContextIfAvailable();
 
         List<Long> ruleIds = deleteRuleSet.stream().map(WorkflowRule::getId).toList();
         log.info("Going to delete rule, ID list: {}", ruleIds);
         workflowRuleRepository.deleteAllByIdInBatch(ruleIds);
-
-        log.info("Going to delete entity: {} {}", applicationName, entitySettingId);
-        workflowEntitySettingRepository.deleteById(entitySettingId);
+        clearPersistenceContextIfAvailable();
 
         List<Long> typeIds = deleteTypeSet.stream().map(WorkflowType::getId).toList();
         log.info("Going to delete action, ID list: {}", typeIds);
         workflowTypeRepository.deleteAllByIdInBatch(typeIds);
+        clearPersistenceContextIfAvailable();
+
+        log.info("Going to delete entity: {} {}", applicationName, entitySettingId);
+        workflowEntitySettingRepository.deleteById(entitySettingId);
 
         log.info("Workflow and entity removed for application: {} (report/record kept)", applicationName);
+    }
+
+    private void clearPersistenceContextIfAvailable() {
+        if (entityManager != null) {
+            entityManager.clear();
+        }
     }
 }
