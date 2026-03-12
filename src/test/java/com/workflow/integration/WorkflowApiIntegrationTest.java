@@ -16,6 +16,9 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -1059,6 +1062,956 @@ class WorkflowApiIntegrationTest {
             assertEquals(requestBody.getPluginList().size(),
                     decodedWorkflow.getPluginList().size(),
                     "Decoded workflow should have same plugin count as input");
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // POST response body verification
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("POST response body verification")
+    class PostResponseBody {
+
+        @Test
+        @DisplayName("POST response body matches subsequent GET response")
+        void postResponseMatchesGet() throws Exception {
+            WorkFlow requestBody = loadTestWorkflow();
+
+            MvcResult postResult = mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestBody)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            WorkFlow postResponse = objectMapper.readValue(
+                    postResult.getResponse().getContentAsString(), WorkFlow.class);
+            WorkFlow getResponse = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+
+            assertEquals(postResponse.getPluginList().size(), getResponse.getPluginList().size(),
+                    "POST and GET should return same plugin count");
+
+            for (int i = 0; i < postResponse.getPluginList().size(); i++) {
+                Plugin postPlugin = postResponse.getPluginList().get(i);
+                Plugin getPlugin = getResponse.getPluginList().get(i);
+                assertEquals(postPlugin.getId(), getPlugin.getId());
+                assertEquals(postPlugin.getDescription(), getPlugin.getDescription());
+                assertEquals(postPlugin.getLinkingIdOfRuleListAndAction(),
+                        getPlugin.getLinkingIdOfRuleListAndAction());
+                assertEquals(postPlugin.getAction().getType(), getPlugin.getAction().getType());
+                assertEquals(postPlugin.getAction().getProvider(), getPlugin.getAction().getProvider());
+                assertEquals(postPlugin.getRuleList().size(), getPlugin.getRuleList().size());
+            }
+
+            assertEquals(postResponse.getUiMapList().size(), getResponse.getUiMapList().size(),
+                    "POST and GET should return same uiMapList size");
+        }
+
+        @Test
+        @DisplayName("POST response contains valid linkingIdOfRuleListAndAction for each plugin")
+        void postResponseContainsLinkingIds() throws Exception {
+            WorkFlow requestBody = loadTestWorkflow();
+
+            MvcResult postResult = mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestBody)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            WorkFlow postResponse = objectMapper.readValue(
+                    postResult.getResponse().getContentAsString(), WorkFlow.class);
+
+            for (Plugin plugin : postResponse.getPluginList()) {
+                assertNotNull(plugin.getLinkingIdOfRuleListAndAction(),
+                        "linkingIdOfRuleListAndAction should be present in POST response for plugin " + plugin.getId());
+                assertFalse(plugin.getLinkingIdOfRuleListAndAction().isBlank());
+            }
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Plugin with empty ruleList / null action
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Plugin with empty ruleList or null action")
+    class EmptyRuleListAndNullAction {
+
+        @Test
+        @DisplayName("Plugin with empty ruleList [] creates empty rule and type in DB")
+        void pluginWithEmptyRuleListCreatesEmptyRuleInDb() throws Exception {
+            Plugin emptyRulePlugin = Plugin.builder()
+                    .id(1)
+                    .description("Plugin with no rules")
+                    .ruleList(List.of())
+                    .action(WorkflowType.builder()
+                            .provider("TestProvider")
+                            .type("CONSUMER")
+                            .remark("Action with no rules")
+                            .httpRequestMethod("GET")
+                            .httpRequestUrlWithQueryParameter("https://example.com/test")
+                            .internalHttpRequestUrlWithQueryParameter("https://example.com/test")
+                            .httpRequestHeaders("{\"Accept\":\"application/json\"}")
+                            .httpRequestBody("")
+                            .trackingNumberSchemaInHttpResponse("{}")
+                            .build())
+                    .build();
+
+            WorkFlow workflow = WorkFlow.builder()
+                    .pluginList(List.of(emptyRulePlugin))
+                    .uiMapList(List.of())
+                    .build();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(workflow)))
+                    .andExpect(status().isOk());
+
+            WorkflowEntitySetting setting =
+                    entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).get(0);
+            List<WorkflowEntityAndLinkingIdMapping> mappings =
+                    linkingIdMappingRepository.findAllByWorkflowEntitySettingId(setting.getId());
+            assertEquals(1, mappings.size(), "One mapping should exist for plugin with empty rules");
+
+            List<WorkflowRuleAndType> ruleAndTypes =
+                    ruleAndTypeRepository.findAllByLinkingIdIn(
+                            mappings.stream().map(WorkflowEntityAndLinkingIdMapping::getLinkingId).toList());
+            assertEquals(1, ruleAndTypes.size(), "One rule-and-type mapping for empty-rule plugin");
+
+            WorkflowRule dbRule = ruleAndTypes.get(0).getWorkflowRule();
+            assertEquals("", dbRule.getKey(), "Empty rule should have blank key");
+
+            WorkflowType dbType = ruleAndTypes.get(0).getWorkflowType();
+            assertNotNull(dbType, "Type should still be saved");
+            assertEquals("TestProvider", dbType.getProvider());
+            assertEquals("CONSUMER", dbType.getType());
+        }
+
+        @Test
+        @DisplayName("Plugin with null action creates type with null fields")
+        void pluginWithNullActionCreatesTypeWithNullFields() throws Exception {
+            Plugin nullActionPlugin = Plugin.builder()
+                    .id(1)
+                    .description("Plugin with null action")
+                    .ruleList(List.of(WorkflowRule.builder()
+                            .key("$.someField")
+                            .remark("A rule")
+                            .build()))
+                    .action(null)
+                    .build();
+
+            WorkFlow workflow = WorkFlow.builder()
+                    .pluginList(List.of(nullActionPlugin))
+                    .uiMapList(List.of())
+                    .build();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(workflow)))
+                    .andExpect(status().isOk());
+
+            WorkflowEntitySetting setting =
+                    entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).get(0);
+            List<WorkflowEntityAndLinkingIdMapping> mappings =
+                    linkingIdMappingRepository.findAllByWorkflowEntitySettingId(setting.getId());
+            assertEquals(1, mappings.size());
+
+            List<WorkflowRuleAndType> ruleAndTypes =
+                    ruleAndTypeRepository.findAllByLinkingIdIn(
+                            mappings.stream().map(WorkflowEntityAndLinkingIdMapping::getLinkingId).toList());
+            assertEquals(1, ruleAndTypes.size());
+
+            WorkflowType dbType = ruleAndTypes.get(0).getWorkflowType();
+            assertNotNull(dbType.getId(), "Type should have been saved even with null source");
+            assertNull(dbType.getProvider());
+            assertNull(dbType.getType());
+        }
+
+        @Test
+        @DisplayName("Empty-rule plugin round-trips correctly via GET")
+        void emptyRulePluginRoundTrips() throws Exception {
+            Plugin emptyRulePlugin = Plugin.builder()
+                    .id(1)
+                    .description("Empty rule plugin")
+                    .ruleList(List.of())
+                    .action(WorkflowType.builder()
+                            .provider("SYSTEM")
+                            .type("IFELSE")
+                            .remark("No rules action")
+                            .build())
+                    .build();
+
+            WorkFlow workflow = WorkFlow.builder()
+                    .pluginList(List.of(emptyRulePlugin))
+                    .uiMapList(List.of())
+                    .build();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(workflow)))
+                    .andExpect(status().isOk());
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+            assertEquals(1, got.getPluginList().size());
+            assertEquals("SYSTEM", got.getPluginList().get(0).getAction().getProvider());
+            assertEquals("IFELSE", got.getPluginList().get(0).getAction().getType());
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // AutoCopy metadata and overwrite
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("AutoCopy metadata copy and overwrite behavior")
+    class AutoCopyMetadataAndOverwrite {
+
+        @Test
+        @DisplayName("AutoCopy copies entity setting metadata (retry, eimId, region, etc.)")
+        void autoCopyCopiesEntitySettingMetadata() throws Exception {
+            WorkFlow original = loadTestWorkflow();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(original)))
+                    .andExpect(status().isOk());
+
+            WorkflowEntitySetting sourceSetting =
+                    entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).get(0);
+            sourceSetting.setRetry(true);
+            sourceSetting.setTracking(true);
+            sourceSetting.setEimId("EIM-12345");
+            sourceSetting.setDefaultServiceAccount("svc-account");
+            sourceSetting.setRegion("us-east-1");
+            entitySettingRepository.saveAndFlush(sourceSetting);
+
+            mockMvc.perform(post("/api/workflow/autoCopy")
+                            .param("fromApplicationName", APP_NAME)
+                            .param("toApplicationName", APP_NAME_COPY)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
+
+            WorkflowEntitySetting targetSetting =
+                    entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME_COPY).get(0);
+            assertEquals(APP_NAME_COPY, targetSetting.getApplicationName(),
+                    "Target should keep its own applicationName");
+            assertEquals(sourceSetting.isRetry(), targetSetting.isRetry(),
+                    "retry should be copied");
+            assertEquals(sourceSetting.isTracking(), targetSetting.isTracking(),
+                    "tracking should be copied");
+            assertEquals(sourceSetting.getEimId(), targetSetting.getEimId(),
+                    "eimId should be copied");
+            assertEquals(sourceSetting.getDefaultServiceAccount(), targetSetting.getDefaultServiceAccount(),
+                    "defaultServiceAccount should be copied");
+            assertEquals(sourceSetting.getRegion(), targetSetting.getRegion(),
+                    "region should be copied");
+        }
+
+        @Test
+        @DisplayName("AutoCopy to existing target overwrites its workflow")
+        void autoCopyOverwritesExistingTarget() throws Exception {
+            WorkFlow fullWorkflow = loadTestWorkflow();
+            WorkFlow partialWorkflow = loadTestWorkflow();
+            partialWorkflow.setPluginList(partialWorkflow.getPluginList().subList(0, 2));
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(fullWorkflow)))
+                    .andExpect(status().isOk());
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME_COPY)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(partialWorkflow)))
+                    .andExpect(status().isOk());
+
+            MvcResult beforeCopy = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME_COPY))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            WorkFlow targetBefore = objectMapper.readValue(
+                    beforeCopy.getResponse().getContentAsString(), WorkFlow.class);
+            assertEquals(2, targetBefore.getPluginList().size(),
+                    "Target initially has 2 plugins");
+
+            mockMvc.perform(post("/api/workflow/autoCopy")
+                            .param("fromApplicationName", APP_NAME)
+                            .param("toApplicationName", APP_NAME_COPY)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
+
+            MvcResult afterCopy = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME_COPY))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            WorkFlow targetAfter = objectMapper.readValue(
+                    afterCopy.getResponse().getContentAsString(), WorkFlow.class);
+            assertEquals(fullWorkflow.getPluginList().size(), targetAfter.getPluginList().size(),
+                    "After AutoCopy, target should have same plugin count as source (10)");
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Plugin ordering
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Plugin ordering verification")
+    class PluginOrdering {
+
+        @Test
+        @DisplayName("Plugins with non-sequential IDs are returned sorted by ID")
+        void nonSequentialPluginIdsSortedCorrectly() throws Exception {
+            WorkFlow fullWorkflow = loadTestWorkflow();
+            List<Plugin> reversed = new ArrayList<>(fullWorkflow.getPluginList());
+            java.util.Collections.reverse(reversed);
+
+            WorkFlow reordered = WorkFlow.builder()
+                    .pluginList(reversed)
+                    .uiMapList(fullWorkflow.getUiMapList())
+                    .build();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(reordered)))
+                    .andExpect(status().isOk());
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+
+            for (int i = 0; i < got.getPluginList().size() - 1; i++) {
+                assertTrue(got.getPluginList().get(i).getId() < got.getPluginList().get(i + 1).getId(),
+                        "Plugins should be sorted by ID ascending, but index " + i
+                                + " has id=" + got.getPluginList().get(i).getId()
+                                + " and index " + (i + 1) + " has id=" + got.getPluginList().get(i + 1).getId());
+            }
+        }
+
+        @Test
+        @DisplayName("Plugins with gaps in IDs (e.g., 1,5,10) preserve correct order and data")
+        void gapPluginIdsPreserveOrder() throws Exception {
+            WorkFlow fullWorkflow = loadTestWorkflow();
+            List<Plugin> gapped = List.of(
+                    fullWorkflow.getPluginList().get(0),
+                    fullWorkflow.getPluginList().get(4),
+                    fullWorkflow.getPluginList().get(9)
+            );
+
+            WorkFlow gappedWorkflow = WorkFlow.builder()
+                    .pluginList(gapped)
+                    .uiMapList(List.of())
+                    .build();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(gappedWorkflow)))
+                    .andExpect(status().isOk());
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+
+            assertEquals(3, got.getPluginList().size());
+            assertEquals(1, got.getPluginList().get(0).getId());
+            assertEquals(5, got.getPluginList().get(1).getId());
+            assertEquals(10, got.getPluginList().get(2).getId());
+
+            assertEquals("CONSUMER", got.getPluginList().get(0).getAction().getType());
+            assertEquals("IFELSE", got.getPluginList().get(1).getAction().getType());
+            assertEquals("MESSAGE", got.getPluginList().get(2).getAction().getType());
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Audit timestamps
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Audit timestamps verification")
+    class AuditTimestamps {
+
+        @Test
+        @DisplayName("Entity setting, rules, and types have populated timestamps after POST")
+        void timestampsPopulatedAfterPost() throws Exception {
+            WorkFlow requestBody = loadTestWorkflow();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestBody)))
+                    .andExpect(status().isOk());
+
+            WorkflowEntitySetting setting =
+                    entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).get(0);
+            assertNotNull(setting.getCreatedDateTime(), "EntitySetting createdDateTime should be set");
+            assertNotNull(setting.getLastModifiedDateTime(), "EntitySetting lastModifiedDateTime should be set");
+
+            List<WorkflowEntityAndLinkingIdMapping> mappings =
+                    linkingIdMappingRepository.findAllByWorkflowEntitySettingId(setting.getId());
+            for (WorkflowEntityAndLinkingIdMapping mapping : mappings) {
+                assertNotNull(mapping.getCreatedDateTime(),
+                        "Mapping createdDateTime should be set for logicOrder " + mapping.getLogicOrder());
+                assertNotNull(mapping.getLastModifiedDateTime(),
+                        "Mapping lastModifiedDateTime should be set for logicOrder " + mapping.getLogicOrder());
+            }
+
+            List<String> linkingIds = mappings.stream()
+                    .map(WorkflowEntityAndLinkingIdMapping::getLinkingId).distinct().toList();
+            List<WorkflowRuleAndType> ruleAndTypes =
+                    ruleAndTypeRepository.findAllByLinkingIdIn(linkingIds);
+            for (WorkflowRuleAndType rat : ruleAndTypes) {
+                assertNotNull(rat.getWorkflowRule().getCreatedDateTime(),
+                        "Rule createdDateTime should be set");
+                assertNotNull(rat.getWorkflowType().getCreatedDateTime(),
+                        "Type createdDateTime should be set");
+            }
+        }
+
+        @Test
+        @DisplayName("GET response includes timestamps on actions and rules")
+        void getResponseIncludesTimestamps() throws Exception {
+            WorkFlow requestBody = loadTestWorkflow();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestBody)))
+                    .andExpect(status().isOk());
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+
+            for (Plugin plugin : got.getPluginList()) {
+                assertNotNull(plugin.getAction().getCreatedDateTime(),
+                        "Action createdDateTime should be in GET response for plugin " + plugin.getId());
+                assertNotNull(plugin.getAction().getLastModifiedDateTime(),
+                        "Action lastModifiedDateTime should be in GET response for plugin " + plugin.getId());
+                for (WorkflowRule rule : plugin.getRuleList()) {
+                    assertNotNull(rule.getCreatedDateTime(),
+                            "Rule createdDateTime should be in GET response");
+                    assertNotNull(rule.getLastModifiedDateTime(),
+                            "Rule lastModifiedDateTime should be in GET response");
+                }
+            }
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Base64 encoding in DB
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Base64 encoding of type fields in DB")
+    class Base64EncodingInDb {
+
+        @Test
+        @DisplayName("Type HTTP fields are base64-encoded in DB but decoded in GET response")
+        void typeFieldsBase64EncodedInDb() throws Exception {
+            WorkFlow requestBody = loadTestWorkflow();
+            Plugin consumerPlugin = requestBody.getPluginList().get(0);
+            assertNotNull(consumerPlugin.getAction().getHttpRequestUrlWithQueryParameter());
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestBody)))
+                    .andExpect(status().isOk());
+
+            WorkflowEntitySetting setting =
+                    entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).get(0);
+            List<WorkflowEntityAndLinkingIdMapping> mappings =
+                    linkingIdMappingRepository.findAllByWorkflowEntitySettingId(setting.getId());
+            mappings.sort(Comparator.comparing(WorkflowEntityAndLinkingIdMapping::getLogicOrder));
+
+            WorkflowEntityAndLinkingIdMapping firstMapping = mappings.get(0);
+            List<WorkflowRuleAndType> ruleAndTypes =
+                    ruleAndTypeRepository.findAllByLinkingIdIn(List.of(firstMapping.getLinkingId()));
+            WorkflowType rawDbType = ruleAndTypes.get(0).getWorkflowType();
+
+            String rawUrl = rawDbType.getHttpRequestUrlWithQueryParameter();
+            assertNotEquals(consumerPlugin.getAction().getHttpRequestUrlWithQueryParameter(), rawUrl,
+                    "URL in DB should be base64-encoded, not raw");
+            String decoded = new String(Base64.getDecoder().decode(rawUrl), StandardCharsets.UTF_8);
+            assertEquals(consumerPlugin.getAction().getHttpRequestUrlWithQueryParameter(), decoded,
+                    "Decoded URL should match original input");
+
+            if (rawDbType.getHttpRequestHeaders() != null && !rawDbType.getHttpRequestHeaders().isEmpty()) {
+                String rawHeaders = rawDbType.getHttpRequestHeaders();
+                assertDoesNotThrow(() -> Base64.getDecoder().decode(rawHeaders),
+                        "Headers in DB should be valid base64");
+            }
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+            assertEquals(consumerPlugin.getAction().getHttpRequestUrlWithQueryParameter(),
+                    got.getPluginList().get(0).getAction().getHttpRequestUrlWithQueryParameter(),
+                    "GET should return decoded URL matching original input");
+        }
+
+        @Test
+        @DisplayName("elseLogic JSON is base64-encoded in DB but decoded in GET response")
+        void elseLogicBase64EncodedInDb() throws Exception {
+            WorkFlow requestBody = loadTestWorkflow();
+            Plugin ifelsePlugin = requestBody.getPluginList().get(1);
+            assertNotNull(ifelsePlugin.getAction().getElseLogic());
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestBody)))
+                    .andExpect(status().isOk());
+
+            WorkflowEntitySetting setting =
+                    entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).get(0);
+            List<WorkflowEntityAndLinkingIdMapping> mappings =
+                    linkingIdMappingRepository.findAllByWorkflowEntitySettingId(setting.getId());
+            mappings.sort(Comparator.comparing(WorkflowEntityAndLinkingIdMapping::getLogicOrder));
+
+            WorkflowEntityAndLinkingIdMapping secondMapping = mappings.get(1);
+            List<WorkflowRuleAndType> ruleAndTypes =
+                    ruleAndTypeRepository.findAllByLinkingIdIn(List.of(secondMapping.getLinkingId()));
+            WorkflowType rawDbType = ruleAndTypes.get(0).getWorkflowType();
+
+            String rawElseLogic = rawDbType.getElseLogic();
+            assertNotNull(rawElseLogic);
+            assertDoesNotThrow(() -> Base64.getDecoder().decode(rawElseLogic),
+                    "elseLogic in DB should be valid base64");
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+
+            assertEquals(ifelsePlugin.getAction().getElseLogic(),
+                    got.getPluginList().get(1).getAction().getElseLogic(),
+                    "GET should return decoded elseLogic matching original input");
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Special characters and complex data
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Special characters and complex data round-trip")
+    class SpecialCharacters {
+
+        @Test
+        @DisplayName("Rule keys with regex special characters survive round-trip")
+        void ruleKeysWithRegexSpecialChars() throws Exception {
+            String complexRuleKey = "$.data[?(@.name =~ /^[A-Z]{2,3}\\d+$/ && @.value > 100)]";
+            Plugin plugin = Plugin.builder()
+                    .id(1)
+                    .description("Complex regex rule")
+                    .ruleList(List.of(WorkflowRule.builder()
+                            .key(complexRuleKey)
+                            .remark("Regex with special chars: ^$[]{}()|\\")
+                            .build()))
+                    .action(WorkflowType.builder()
+                            .provider("SYSTEM")
+                            .type("IFELSE")
+                            .remark("Test action")
+                            .build())
+                    .build();
+
+            WorkFlow workflow = WorkFlow.builder()
+                    .pluginList(List.of(plugin))
+                    .uiMapList(List.of())
+                    .build();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(workflow)))
+                    .andExpect(status().isOk());
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+
+            assertEquals(complexRuleKey, got.getPluginList().get(0).getRuleList().get(0).getKey(),
+                    "Complex regex rule key should survive round-trip");
+        }
+
+        @Test
+        @DisplayName("Unicode characters in description and remark survive round-trip")
+        void unicodeCharactersSurviveRoundTrip() throws Exception {
+            Plugin plugin = Plugin.builder()
+                    .id(1)
+                    .description("步骤一：发送通知 🚀")
+                    .ruleList(List.of(WorkflowRule.builder()
+                            .key("$.data")
+                            .remark("规则说明：检查数据是否存在")
+                            .build()))
+                    .action(WorkflowType.builder()
+                            .provider("SYSTEM")
+                            .type("MESSAGE")
+                            .remark("动作备注：发送消息给用户 éàü ñ")
+                            .build())
+                    .build();
+
+            WorkFlow workflow = WorkFlow.builder()
+                    .pluginList(List.of(plugin))
+                    .uiMapList(List.of())
+                    .build();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(workflow)))
+                    .andExpect(status().isOk());
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+
+            assertEquals("步骤一：发送通知 🚀", got.getPluginList().get(0).getDescription());
+            assertEquals("规则说明：检查数据是否存在",
+                    got.getPluginList().get(0).getRuleList().get(0).getRemark());
+            assertEquals("动作备注：发送消息给用户 éàü ñ",
+                    got.getPluginList().get(0).getAction().getRemark());
+        }
+
+        @Test
+        @DisplayName("URL with query parameters and special chars survives base64 round-trip")
+        void urlWithSpecialCharsSurvivesRoundTrip() throws Exception {
+            String complexUrl = "https://api.example.com/v2/search?q=hello+world&filter=type%3Dactive&page=1&size=50";
+            Plugin plugin = Plugin.builder()
+                    .id(1)
+                    .description("URL with query params")
+                    .ruleList(List.of(WorkflowRule.builder()
+                            .key("$.data")
+                            .remark("rule")
+                            .build()))
+                    .action(WorkflowType.builder()
+                            .provider("ExternalAPI")
+                            .type("CONSUMER")
+                            .remark("Call external")
+                            .httpRequestMethod("POST")
+                            .httpRequestUrlWithQueryParameter(complexUrl)
+                            .internalHttpRequestUrlWithQueryParameter(complexUrl)
+                            .httpRequestHeaders("{\"Authorization\":\"Bearer abc.def.ghi\",\"Content-Type\":\"application/json\"}")
+                            .httpRequestBody("{\"query\":\"SELECT * FROM table WHERE id = 'test' AND status != \\\"deleted\\\"\"}")
+                            .trackingNumberSchemaInHttpResponse("{\"path\":\"$.result[0].trackingId\"}")
+                            .build())
+                    .build();
+
+            WorkFlow workflow = WorkFlow.builder()
+                    .pluginList(List.of(plugin))
+                    .uiMapList(List.of())
+                    .build();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(workflow)))
+                    .andExpect(status().isOk());
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+
+            var action = got.getPluginList().get(0).getAction();
+            assertEquals(complexUrl, action.getHttpRequestUrlWithQueryParameter());
+            assertEquals(complexUrl, action.getInternalHttpRequestUrlWithQueryParameter());
+            assertEquals("{\"Authorization\":\"Bearer abc.def.ghi\",\"Content-Type\":\"application/json\"}",
+                    action.getHttpRequestHeaders());
+        }
+
+        @Test
+        @DisplayName("elseLogic with deeply nested JSON survives round-trip")
+        void deeplyNestedElseLogicSurvivesRoundTrip() throws Exception {
+            String deepJson = "{\"level1\":{\"level2\":{\"level3\":{\"level4\":{\"value\":\"deep\",\"array\":[1,2,3]}}}}}";
+            Plugin plugin = Plugin.builder()
+                    .id(1)
+                    .description("Deep JSON")
+                    .ruleList(List.of(WorkflowRule.builder().key("$.x").remark("r").build()))
+                    .action(WorkflowType.builder()
+                            .provider("SYSTEM")
+                            .type("IFELSE")
+                            .remark("Deep nested elseLogic")
+                            .elseLogic(deepJson)
+                            .build())
+                    .build();
+
+            WorkFlow workflow = WorkFlow.builder()
+                    .pluginList(List.of(plugin))
+                    .uiMapList(List.of())
+                    .build();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(workflow)))
+                    .andExpect(status().isOk());
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+
+            com.fasterxml.jackson.databind.JsonNode expectedJson = objectMapper.readTree(deepJson);
+            com.fasterxml.jackson.databind.JsonNode actualJson = objectMapper.readTree(
+                    got.getPluginList().get(0).getAction().getElseLogic());
+            assertEquals(expectedJson, actualJson,
+                    "Deeply nested elseLogic JSON should survive round-trip");
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Re-POST with completely different plugins
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Re-POST with completely different plugins")
+    class RePostDifferentPlugins {
+
+        @Test
+        @DisplayName("Re-POST with entirely new plugin types replaces all old data")
+        void rePostWithNewPluginTypesReplacesAll() throws Exception {
+            WorkFlow original = loadTestWorkflow();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(original)))
+                    .andExpect(status().isOk());
+
+            WorkflowEntitySetting settingAfterFirst =
+                    entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).get(0);
+            List<WorkflowEntityAndLinkingIdMapping> mappingsFirst =
+                    linkingIdMappingRepository.findAllByWorkflowEntitySettingId(settingAfterFirst.getId());
+            List<String> linkingIdsFirst = mappingsFirst.stream()
+                    .map(WorkflowEntityAndLinkingIdMapping::getLinkingId).distinct().toList();
+            List<WorkflowRuleAndType> ruleAndTypesFirst =
+                    ruleAndTypeRepository.findAllByLinkingIdIn(linkingIdsFirst);
+            List<Long> oldRuleIds = ruleAndTypesFirst.stream()
+                    .map(rt -> rt.getWorkflowRule().getId()).distinct().toList();
+            List<Long> oldTypeIds = ruleAndTypesFirst.stream()
+                    .map(rt -> rt.getWorkflowType().getId()).distinct().toList();
+
+            Plugin newPlugin = Plugin.builder()
+                    .id(99)
+                    .description("Brand new plugin with different data")
+                    .ruleList(List.of(
+                            WorkflowRule.builder().key("$.brand.new.key").remark("New rule A").build(),
+                            WorkflowRule.builder().key("$.another.new.key").remark("New rule B").build()
+                    ))
+                    .action(WorkflowType.builder()
+                            .provider("NewProvider")
+                            .type("CONSUMER")
+                            .remark("Completely different action")
+                            .httpRequestMethod("PUT")
+                            .httpRequestUrlWithQueryParameter("https://new-service.example.com/api")
+                            .internalHttpRequestUrlWithQueryParameter("https://new-internal.example.com/api")
+                            .httpRequestHeaders("{\"X-Custom\":\"value\"}")
+                            .httpRequestBody("{\"newKey\":\"newValue\"}")
+                            .trackingNumberSchemaInHttpResponse("{\"id\":\"$.newId\"}")
+                            .build())
+                    .build();
+
+            WorkFlow brandNew = WorkFlow.builder()
+                    .pluginList(List.of(newPlugin))
+                    .uiMapList(List.of())
+                    .build();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(brandNew)))
+                    .andExpect(status().isOk());
+
+            for (Long oldRuleId : oldRuleIds) {
+                assertFalse(ruleRepository.existsById(oldRuleId),
+                        "Old rule " + oldRuleId + " should be gone");
+            }
+            for (Long oldTypeId : oldTypeIds) {
+                assertFalse(typeRepository.existsById(oldTypeId),
+                        "Old type " + oldTypeId + " should be gone");
+            }
+            assertTrue(ruleAndTypeRepository.findAllByLinkingIdIn(linkingIdsFirst).isEmpty(),
+                    "Old rule-and-type mappings should be gone");
+
+            WorkflowEntitySetting settingAfterSecond =
+                    entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).get(0);
+            List<WorkflowEntityAndLinkingIdMapping> mappingsSecond =
+                    linkingIdMappingRepository.findAllByWorkflowEntitySettingId(settingAfterSecond.getId());
+            assertEquals(1, mappingsSecond.size(), "Only 1 mapping for the new single plugin");
+
+            MvcResult getResult = mockMvc.perform(get("/api/workflow")
+                            .param("applicationName", APP_NAME))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            WorkFlow got = objectMapper.readValue(
+                    getResult.getResponse().getContentAsString(), WorkFlow.class);
+            assertEquals(1, got.getPluginList().size());
+            assertEquals(99, got.getPluginList().get(0).getId());
+            assertEquals("NewProvider", got.getPluginList().get(0).getAction().getProvider());
+            assertEquals("PUT", got.getPluginList().get(0).getAction().getHttpRequestMethod());
+            assertEquals(2, got.getPluginList().get(0).getRuleList().size());
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // DELETE after re-POST
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("DELETE after re-POST still cleans all records")
+    class DeleteAfterRePost {
+
+        @Test
+        @DisplayName("Full lifecycle: POST -> re-POST -> DELETE -> all records gone")
+        void fullLifecyclePostRePostDelete() throws Exception {
+            WorkFlow original = loadTestWorkflow();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(original)))
+                    .andExpect(status().isOk());
+
+            WorkFlow modified = loadTestWorkflow();
+            modified.setPluginList(modified.getPluginList().subList(0, 4));
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(modified)))
+                    .andExpect(status().isOk());
+
+            WorkflowEntitySetting setting =
+                    entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).get(0);
+            Long settingId = setting.getId();
+
+            List<WorkflowEntityAndLinkingIdMapping> mappings =
+                    linkingIdMappingRepository.findAllByWorkflowEntitySettingId(settingId);
+            assertEquals(4, mappings.size(), "4 mappings should exist after re-POST");
+
+            List<String> currentLinkingIds = mappings.stream()
+                    .map(WorkflowEntityAndLinkingIdMapping::getLinkingId).distinct().toList();
+            List<WorkflowRuleAndType> currentRuleAndTypes =
+                    ruleAndTypeRepository.findAllByLinkingIdIn(currentLinkingIds);
+            List<Long> currentRuleIds = currentRuleAndTypes.stream()
+                    .map(rt -> rt.getWorkflowRule().getId()).distinct().toList();
+            List<Long> currentTypeIds = currentRuleAndTypes.stream()
+                    .map(rt -> rt.getWorkflowType().getId()).distinct().toList();
+
+            mockMvc.perform(delete("/api/workflow").param("applicationName", APP_NAME))
+                    .andExpect(status().isOk());
+
+            assertTrue(entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).isEmpty());
+            assertTrue(linkingIdMappingRepository.findAllByWorkflowEntitySettingId(settingId).isEmpty());
+            assertTrue(ruleAndTypeRepository.findAllByLinkingIdIn(currentLinkingIds).isEmpty());
+            for (Long ruleId : currentRuleIds) {
+                assertFalse(ruleRepository.existsById(ruleId),
+                        "Rule " + ruleId + " should be gone after DELETE");
+            }
+            for (Long typeId : currentTypeIds) {
+                assertFalse(typeRepository.existsById(typeId),
+                        "Type " + typeId + " should be gone after DELETE");
+            }
+        }
+
+        @Test
+        @DisplayName("Multiple re-POSTs then DELETE leaves zero orphan records")
+        void multipleRePostsThenDeleteNoOrphans() throws Exception {
+            WorkFlow w1 = loadTestWorkflow();
+            WorkFlow w2 = loadTestWorkflow();
+            w2.setPluginList(w2.getPluginList().subList(0, 5));
+            WorkFlow w3 = loadTestWorkflow();
+            w3.setPluginList(w3.getPluginList().subList(0, 2));
+
+            long ruleCountBefore = ruleRepository.count();
+            long typeCountBefore = typeRepository.count();
+            long ruleAndTypeCountBefore = ruleAndTypeRepository.count();
+            long mappingCountBefore = linkingIdMappingRepository.count();
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(w1)))
+                    .andExpect(status().isOk());
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(w2)))
+                    .andExpect(status().isOk());
+
+            mockMvc.perform(post("/api/workflow")
+                            .param("applicationName", APP_NAME)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(w3)))
+                    .andExpect(status().isOk());
+
+            mockMvc.perform(delete("/api/workflow").param("applicationName", APP_NAME))
+                    .andExpect(status().isOk());
+
+            assertEquals(ruleCountBefore, ruleRepository.count(),
+                    "Rule count should return to baseline after full lifecycle");
+            assertEquals(typeCountBefore, typeRepository.count(),
+                    "Type count should return to baseline after full lifecycle");
+            assertEquals(ruleAndTypeCountBefore, ruleAndTypeRepository.count(),
+                    "RuleAndType count should return to baseline after full lifecycle");
+            assertEquals(mappingCountBefore, linkingIdMappingRepository.count(),
+                    "Mapping count should return to baseline after full lifecycle");
         }
     }
 
