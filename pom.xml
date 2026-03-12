@@ -121,6 +121,8 @@
             <groupId>p6spy</groupId>
             <artifactId>p6spy</artifactId>
             <version>3.9.1</version>
+        </dependency>
+
         <!-- H2 for integration tests -->
         <dependency>
             <groupId>com.h2database</groupId>
