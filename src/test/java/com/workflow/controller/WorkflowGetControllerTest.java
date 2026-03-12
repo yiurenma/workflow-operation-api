@@ -308,7 +308,6 @@ class WorkflowGetControllerTest {
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app6")).thenReturn(List.of(entitySetting));
         when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(6L))
                 .thenReturn(new ArrayList<>(List.of(mapping)));
-        when(workflowRuleAndTypeRepository.findAllByLinkingIdIn(anyList())).thenReturn(List.of());
 
         WorkFlow result = controller.getWorkFlow("app6");
 

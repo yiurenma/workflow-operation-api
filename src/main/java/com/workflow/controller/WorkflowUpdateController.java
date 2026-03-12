@@ -1,12 +1,16 @@
 package com.workflow.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.workflow.controller.domain.Plugin;
 import com.workflow.controller.domain.WorkFlow;
 import com.workflow.dao.repository.*;
 import com.workflow.common.util.Base64Util;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -30,6 +34,8 @@ import java.util.*;
 @RequiredArgsConstructor
 public class WorkflowUpdateController {
 
+    private static final int MAX_RETRY_ON_DUPLICATE_KEY = 3;
+
     private final WorkflowEntitySettingRepository workflowEntitySettingRepository;
     private final WorkflowEntityAndLinkingIdMappingRepository workflowEntityAndLinkingIdMappingRepository;
     private final WorkflowRuleAndTypeRepository workflowRuleAndTypeRepository;
@@ -39,22 +45,36 @@ public class WorkflowUpdateController {
     private final WorkflowDeleteController workflowDeleteController;
     private final ObjectMapper objectMapper;
 
+    @Operation(
+            summary = "Create or update workflow",
+            description = "Upserts workflow by application name. Existing workflow internals are cleared and rebuilt."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Workflow saved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid application/workflow payload"),
+            @ApiResponse(responseCode = "409", description = "Workflow update failed after duplicate key retries")
+    })
     @Transactional
     @PostMapping(value = "/workflow", consumes = MediaType.APPLICATION_JSON_VALUE)
     public WorkFlow updateWorkFlow(
             @RequestParam(required = true) @Parameter(example = "UK_DRFI", required = true,
                     description = "Application identifier for the workflow") @NotNull String applicationName,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "Workflow definition with ordered plugin list and optional uiMapList",
+                    content = @Content(schema = @Schema(implementation = WorkFlow.class))
+            )
             @RequestBody(required = false) @Valid WorkFlow workFlow) {
+        if (workFlow == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Workflow body is required for update operation");
+        }
 
         List<WorkflowEntitySetting> entitySettingList =
                 workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName(applicationName);
 
         WorkflowEntitySetting entitySetting;
         if (entitySettingList.isEmpty()) {
-            if (workFlow == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Workflow body is required when creating a new workflow for application: " + applicationName);
-            }
             entitySetting = WorkflowEntitySetting.builder()
                     .applicationName(applicationName)
                     .enabled(true)
@@ -65,16 +85,23 @@ public class WorkflowUpdateController {
         } else {
             entitySetting = entitySettingList.get(0);
         }
-        boolean duplicateKeyExceptionGoingOn = true;
-        while (duplicateKeyExceptionGoingOn) {
+        for (int attempt = 1; attempt <= MAX_RETRY_ON_DUPLICATE_KEY; attempt++) {
             try {
                 deleteAndAddWorkFlow(workFlow, entitySetting);
-                duplicateKeyExceptionGoingOn = false;
+                return workflowGetController.getWorkFlow(applicationName);
             } catch (DataIntegrityViolationException e) {
-                log.warn("Duplicate key value violates unique constraint: {}", e.getCause());
+                log.warn("Duplicate key during workflow update (attempt {}/{}): {}",
+                        attempt, MAX_RETRY_ON_DUPLICATE_KEY, e.getMessage());
+                if (attempt == MAX_RETRY_ON_DUPLICATE_KEY) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Failed to update workflow after " + MAX_RETRY_ON_DUPLICATE_KEY + " retries due to duplicate key conflicts",
+                            e
+                    );
+                }
             }
         }
-        return workflowGetController.getWorkFlow(applicationName);
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "Failed to update workflow");
     }
 
     @Transactional
@@ -91,7 +118,8 @@ public class WorkflowUpdateController {
         List<WorkflowRuleAndType> savedRuleAndTypeList = new ArrayList<>();
         List<WorkflowEntityAndLinkingIdMapping> savedLinkingIdMappingList = new ArrayList<>();
 
-        for (Plugin plugin : workFlow.getPluginList()) {
+        List<Plugin> pluginList = workFlow.getPluginList() != null ? workFlow.getPluginList() : List.of();
+        for (Plugin plugin : pluginList) {
             log.info("Plugin order: {}", plugin.getId());
             if (plugin.getRuleList() != null && !plugin.getRuleList().isEmpty()) {
                 List<WorkflowRule> savedRuleList = new ArrayList<>();
@@ -104,16 +132,7 @@ public class WorkflowUpdateController {
                     savedRuleList.add(savedRule);
                 }
 
-                WorkflowType type = plugin.getAction();
-                WorkflowType copyType = WorkflowType.builder().build();
-                org.springframework.beans.BeanUtils.copyProperties(type, copyType);
-                copyType.setId(null);
-                copyType.setElseLogic(Base64Util.base64Encode(copyType.getElseLogic(), true, objectMapper));
-                copyType.setHttpRequestUrlWithQueryParameter(Base64Util.base64Encode(copyType.getHttpRequestUrlWithQueryParameter(), false, objectMapper));
-                copyType.setInternalHttpRequestUrlWithQueryParameter(Base64Util.base64Encode(copyType.getInternalHttpRequestUrlWithQueryParameter(), false, objectMapper));
-                copyType.setHttpRequestHeaders(Base64Util.base64Encode(copyType.getHttpRequestHeaders(), true, objectMapper));
-                copyType.setHttpRequestBody(Base64Util.base64Encode(copyType.getHttpRequestBody(), true, objectMapper));
-                copyType.setTrackingNumberSchemaInHttpResponse(Base64Util.base64Encode(copyType.getTrackingNumberSchemaInHttpResponse(), true, objectMapper));
+                WorkflowType copyType = encodeWorkflowTypeForPersistence(plugin.getAction());
 
                 WorkflowType savedType = workflowTypeRepository.saveAndFlush(copyType);
                 log.info("Store action success, action id: {}", savedType.getId());
@@ -136,8 +155,7 @@ public class WorkflowUpdateController {
                 log.info("Save entity and linking: {} {}", entitySetting.getApplicationName(), linkingId);
             } else {
                 WorkflowRule emptyRule = workflowRuleRepository.saveAndFlush(WorkflowRule.builder().key("").build());
-                WorkflowType savedType = workflowTypeRepository.saveAndFlush(
-                        plugin.getAction() != null ? plugin.getAction() : WorkflowType.builder().build());
+                WorkflowType savedType = workflowTypeRepository.saveAndFlush(encodeWorkflowTypeForPersistence(plugin.getAction()));
                 String linkingId = entitySetting.getId() + "_" + savedType.getId() + "_" + plugin.getId();
                 savedRuleAndTypeList.add(WorkflowRuleAndType.builder()
                         .workflowRule(emptyRule)
@@ -160,5 +178,20 @@ public class WorkflowUpdateController {
         log.info("Going to store entity and linking mapping: {}", savedLinkingIdMappingList);
         workflowEntityAndLinkingIdMappingRepository.saveAll(savedLinkingIdMappingList);
         workflowEntityAndLinkingIdMappingRepository.flush();
+    }
+
+    private WorkflowType encodeWorkflowTypeForPersistence(WorkflowType source) {
+        WorkflowType copyType = WorkflowType.builder().build();
+        if (source != null) {
+            org.springframework.beans.BeanUtils.copyProperties(source, copyType);
+        }
+        copyType.setId(null);
+        copyType.setElseLogic(Base64Util.base64Encode(copyType.getElseLogic(), true, objectMapper));
+        copyType.setHttpRequestUrlWithQueryParameter(Base64Util.base64Encode(copyType.getHttpRequestUrlWithQueryParameter(), false, objectMapper));
+        copyType.setInternalHttpRequestUrlWithQueryParameter(Base64Util.base64Encode(copyType.getInternalHttpRequestUrlWithQueryParameter(), false, objectMapper));
+        copyType.setHttpRequestHeaders(Base64Util.base64Encode(copyType.getHttpRequestHeaders(), true, objectMapper));
+        copyType.setHttpRequestBody(Base64Util.base64Encode(copyType.getHttpRequestBody(), true, objectMapper));
+        copyType.setTrackingNumberSchemaInHttpResponse(Base64Util.base64Encode(copyType.getTrackingNumberSchemaInHttpResponse(), true, objectMapper));
+        return copyType;
     }
 }

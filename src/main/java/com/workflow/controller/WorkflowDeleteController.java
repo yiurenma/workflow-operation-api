@@ -11,7 +11,10 @@ import com.workflow.dao.repository.WorkflowRuleAndTypeRepository;
 import com.workflow.dao.repository.WorkflowRuleRepository;
 import com.workflow.dao.repository.WorkflowType;
 import com.workflow.dao.repository.WorkflowTypeRepository;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +43,15 @@ public class WorkflowDeleteController {
     private final WorkflowRuleRepository workflowRuleRepository;
     private final WorkflowTypeRepository workflowTypeRepository;
 
+    @Operation(
+            summary = "Delete workflow by application name",
+            description = "Deletes workflow mappings/rules/types and then removes entity setting when no workflow reports exist."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Workflow deleted"),
+            @ApiResponse(responseCode = "400", description = "Application name does not exist exactly once or mapping is invalid"),
+            @ApiResponse(responseCode = "409", description = "Workflow cannot be deleted because reports exist")
+    })
     @Transactional
     @DeleteMapping(value = "/workflow", produces = MediaType.APPLICATION_JSON_VALUE)
     public void deleteWorkFlow(
@@ -77,6 +89,12 @@ public class WorkflowDeleteController {
     public void deleteWorkflowRulesMappingsAndTypes(WorkflowEntitySetting entitySetting) {
         List<WorkflowEntityAndLinkingIdMapping> mappings =
                 workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(entitySetting.getId());
+        if (mappings.isEmpty()) {
+            entitySetting.setTrackingServiceProviderActionId(null);
+            entitySetting.setTrackingServiceProviderActionId2(null);
+            workflowEntitySettingRepository.saveAndFlush(entitySetting);
+            return;
+        }
 
         for (WorkflowEntityAndLinkingIdMapping m : mappings) {
             if (m.getLinkingId() == null || m.getLinkingId().isBlank()) {
@@ -94,13 +112,19 @@ public class WorkflowDeleteController {
         workflowEntityAndLinkingIdMappingRepository.flush();
 
         List<Long> ruleAndTypeIds = allRuleAndTypes.stream().map(WorkflowRuleAndType::getId).toList();
-        workflowRuleAndTypeRepository.deleteAllByIdInBatch(ruleAndTypeIds);
+        if (!ruleAndTypeIds.isEmpty()) {
+            workflowRuleAndTypeRepository.deleteAllByIdInBatch(ruleAndTypeIds);
+        }
 
         List<Long> ruleIds = allRuleAndTypes.stream().map(rt -> rt.getWorkflowRule().getId()).distinct().toList();
-        workflowRuleRepository.deleteAllByIdInBatch(ruleIds);
+        if (!ruleIds.isEmpty()) {
+            workflowRuleRepository.deleteAllByIdInBatch(ruleIds);
+        }
 
         List<Long> typeIds = allRuleAndTypes.stream().map(rt -> rt.getWorkflowType().getId()).distinct().toList();
-        workflowTypeRepository.deleteAllByIdInBatch(typeIds);
+        if (!typeIds.isEmpty()) {
+            workflowTypeRepository.deleteAllByIdInBatch(typeIds);
+        }
         
         entitySetting.setTrackingServiceProviderActionId(null);
         entitySetting.setTrackingServiceProviderActionId2(null);

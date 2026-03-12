@@ -3,12 +3,14 @@ package com.workflow.controller;
 import com.workflow.controller.domain.WorkFlow;
 import com.workflow.dao.repository.WorkflowEntitySetting;
 import com.workflow.dao.repository.WorkflowEntitySettingRepository;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
@@ -29,11 +31,25 @@ public class WorkflowAutoCopyController {
     private final WorkflowGetController workflowGetController;
     private final WorkflowUpdateController workflowUpdateController;
 
+    @Operation(
+            summary = "Copy workflow between applications",
+            description = "Copies source entity setting metadata and workflow content from one application to another."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Workflow copied successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid source/target application names")
+    })
     @PostMapping(value = "/workflow/autoCopy", consumes = MediaType.APPLICATION_JSON_VALUE)
     public WorkFlow autoCopyWorkFlow(
-            @RequestHeader(HttpHeaders.CONTENT_TYPE) @Parameter(example = "application/json", required = true) @NotNull String contentType,
-            @RequestParam(required = true) @Parameter(example = "UK_DRFI") @NotNull String fromApplicationName,
-            @RequestParam(required = true) @Parameter(example = "UK_DRFI") @NotNull String toApplicationName) {
+            @RequestParam(required = true) @Parameter(example = "UK_DRFI", required = true,
+                    description = "Source application name") @NotNull String fromApplicationName,
+            @RequestParam(required = true) @Parameter(example = "UK_DRFI_COPY", required = true,
+                    description = "Target application name") @NotNull String toApplicationName) {
+
+        if (fromApplicationName.equals(toApplicationName)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Source and target application names must be different");
+        }
 
         List<WorkflowEntitySetting> entitySettingList =
                 workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName(fromApplicationName);
@@ -44,15 +60,29 @@ public class WorkflowAutoCopyController {
         }
 
         WorkflowEntitySetting originalSetting = entitySettingList.get(0);
-        WorkflowEntitySetting newSetting = new WorkflowEntitySetting();
-        org.springframework.beans.BeanUtils.copyProperties(originalSetting, newSetting);
-        newSetting.setId(null);
-        newSetting.setApplicationName(toApplicationName);
-        newSetting.setTrackingServiceProviderActionId(originalSetting.getTrackingServiceProviderActionId());
+        List<WorkflowEntitySetting> targetSettingList =
+                workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName(toApplicationName);
+        if (targetSettingList.size() > 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Target application name must exist at most once; found: " + targetSettingList.size());
+        }
 
-        workflowEntitySettingRepository.save(newSetting);
+        WorkflowEntitySetting targetSetting = targetSettingList.isEmpty()
+                ? new WorkflowEntitySetting()
+                : targetSettingList.get(0);
+
+        // Copy non-ID metadata to keep target config aligned with source while preserving target app name.
+        org.springframework.beans.BeanUtils.copyProperties(
+                originalSetting,
+                targetSetting,
+                "id",
+                "applicationName",
+                "workflow"
+        );
+        targetSetting.setApplicationName(toApplicationName);
+        workflowEntitySettingRepository.saveAndFlush(targetSetting);
 
         WorkFlow workFlow = workflowGetController.getWorkFlow(fromApplicationName);
-        return workflowUpdateController.updateWorkFlow(newSetting.getApplicationName(), workFlow);
+        return workflowUpdateController.updateWorkFlow(toApplicationName, workFlow);
     }
 }
