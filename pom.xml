@@ -14,8 +14,8 @@
     <groupId>${resolved.groupId}</groupId>
     <artifactId>workflow-operation-api</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <name>lowcode-workflow</name>
-    <description>Low-code project built with Spring Boot and JDK 21</description>
+    <name>workflow-operation-api</name>
+    <description>Workflow Operation API built with Spring Boot and JDK 21</description>
 
     <properties>
         <resolved.groupId>com.snails</resolved.groupId>
@@ -65,7 +65,7 @@
             <artifactId>micrometer-tracing-bridge-brave</artifactId>
         </dependency>
 
-        <!-- Spring Data JPA - for low-code data-driven apps -->
+        <!-- Spring Data JPA - for data-driven workflow operations -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -145,7 +145,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Lombok - reduce boilerplate (low-code friendly) -->
+        <!-- Lombok - reduce boilerplate -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -224,7 +224,7 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <exclude>com/workflow/LowcodeWorkflowApplication*</exclude>
+                                <exclude>com/workflow/WorkflowOperationApiApplication*</exclude>
                                 <exclude>com/workflow/dao/repository/**</exclude>
                                 <exclude>com/workflow/controller/domain/**</exclude>
                             </excludes>
@@ -238,7 +238,7 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <exclude>com/workflow/LowcodeWorkflowApplication*</exclude>
+                                <exclude>com/workflow/WorkflowOperationApiApplication*</exclude>
                                 <exclude>com/workflow/dao/repository/**</exclude>
                                 <exclude>com/workflow/controller/domain/**</exclude>
                             </excludes>

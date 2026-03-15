@@ -1,6 +1,6 @@
-# Low-Code Workflow
+# Workflow Operation API
 
-A low-code workflow platform built with **Spring Boot 4.0.3** and **JDK 21**. It provides REST APIs for a UI to define and manage workflows (rules, types, entity settings), and a single **online API** that accepts any incoming request, builds a runtime JSON from the request data, selects the configured workflow, gathers data from backend APIs, and forwards the result to the fulfillment system for processing.
+A Workflow Operation API platform built with **Spring Boot 4.0.3** and **JDK 21**. It provides REST APIs for a UI to define and manage workflows (rules, types, entity settings), and a single **online API** that accepts any incoming request, builds a runtime JSON from the request data, selects the configured workflow, gathers data from backend APIs, and forwards the result to the fulfillment system for processing.
 
 ## Quick Start
 
@@ -38,7 +38,7 @@ Runs at `http://localhost:8080`.
 
 | API | Description |
 |-----|-------------|
-| **Create Workflow** | Define a new workflow in the low-code platform |
+| **Create Workflow** | Define a new workflow in the Workflow Operation API platform |
 | **Delete Workflow** | Remove a workflow by application name |
 | **Update Workflow** | Replace an existing workflow (internally: delete + create) |
 
@@ -58,7 +58,7 @@ A single **online API** serves as the entry point for all incoming requests:
 
 1. **Request Ingestion** – Accepts any request regardless of path, headers, or body
 2. **Runtime JSON** – Collects all request data (path, headers, query params, body) into a unified runtime JSON
-3. **Workflow Selection** – Resolves and loads the workflow defined in the low-code platform
+3. **Workflow Selection** – Resolves and loads the workflow defined in the Workflow Operation API platform
 4. **Workflow Execution** – Runs the workflow to call backend systems and send the payload to the fulfillment system
 
 ### Flow

@@ -6,9 +6,9 @@ import org.springframework.data.envers.repository.config.EnableEnversRepositorie
 
 @SpringBootApplication
 @EnableEnversRepositories
-public class LowcodeWorkflowApplication {
+public class WorkflowOperationApiApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(LowcodeWorkflowApplication.class, args);
+        SpringApplication.run(WorkflowOperationApiApplication.class, args);
     }
 }
