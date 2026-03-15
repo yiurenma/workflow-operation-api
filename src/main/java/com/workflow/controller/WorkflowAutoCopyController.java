@@ -22,7 +22,10 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/api")
-@Tag(name = "Workflow AutoCopy API", description = "Copy workflow from one application to another")
+@Tag(
+        name = "Workflow API",
+        description = "Core workflow management APIs: query, create/update, delete, and copy by application name."
+)
 @Validated
 @RequiredArgsConstructor
 public class WorkflowAutoCopyController {

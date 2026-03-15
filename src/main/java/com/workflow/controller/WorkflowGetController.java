@@ -32,7 +32,10 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @RequestMapping("/api")
-@Tag(name = "Workflow Get API", description = "Get workflow by application name")
+@Tag(
+        name = "Workflow API",
+        description = "Core workflow management APIs: query, create/update, delete, and copy by application name."
+)
 @Validated
 @RequiredArgsConstructor
 public class WorkflowGetController {

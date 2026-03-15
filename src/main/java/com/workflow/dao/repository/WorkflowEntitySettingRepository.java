@@ -22,7 +22,7 @@ import java.util.List;
 @RequestMapping(value = "/workflow/")
 @RepositoryRestResource(path = "entity-setting")
 @Tag(
-        name = "Workflow Entity Setting Repository API",
+        name = "Entity Setting Repository API",
         description = """
                 Spring Data REST endpoints for entity setting CRUD and search.
                                 

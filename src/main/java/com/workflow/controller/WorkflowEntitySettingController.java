@@ -29,7 +29,10 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping(value = "/api/")
-@Tag(name = "Workflow Entity Setting API", description = "Query and revision history APIs for workflow entity setting")
+@Tag(
+        name = "Entity Setting Query API",
+        description = "Business-facing entity setting APIs: QueryDSL fuzzy search and Envers revision history."
+)
 @Validated
 @RequiredArgsConstructor
 public class WorkflowEntitySettingController {

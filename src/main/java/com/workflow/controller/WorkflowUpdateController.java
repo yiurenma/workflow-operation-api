@@ -29,7 +29,10 @@ import java.util.*;
 @Slf4j
 @RestController
 @RequestMapping("/api")
-@Tag(name = "Workflow Update API", description = "Create or update workflow (delete then create)")
+@Tag(
+        name = "Workflow API",
+        description = "Core workflow management APIs: query, create/update, delete, and copy by application name."
+)
 @Validated
 @RequiredArgsConstructor
 public class WorkflowUpdateController {

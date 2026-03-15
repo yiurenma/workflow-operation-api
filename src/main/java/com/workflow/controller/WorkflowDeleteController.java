@@ -31,7 +31,10 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/api")
-@Tag(name = "Workflow Delete API", description = "Delete workflow by application name")
+@Tag(
+        name = "Workflow API",
+        description = "Core workflow management APIs: query, create/update, delete, and copy by application name."
+)
 @Validated
 @RequiredArgsConstructor
 public class WorkflowDeleteController {
