@@ -61,5 +61,6 @@ class ApiDocumentationEndpointIntegrationTest {
         assertTrue(apiDocs.contains("WF-500-000"));
         assertTrue(apiDocs.contains("\"Business Error\""));
         assertTrue(apiDocs.contains("\"System Error\""));
+        assertTrue(apiDocs.contains("\"/api/workflow-user\""));
     }
 }
