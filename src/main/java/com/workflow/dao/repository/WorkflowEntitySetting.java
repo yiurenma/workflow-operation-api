@@ -67,7 +67,7 @@ public class WorkflowEntitySetting extends Auditable implements Serializable {
 
     @Column(nullable = true)
     @Comment("Whether duplicate-record errors should be ignored")
-    private boolean ignoreDuplicateRecordError;
+    private Boolean ignoreDuplicateRecordError;
 
     @Column(length = 10000)
     @Comment("Retry configuration payload (JSON/text)")
