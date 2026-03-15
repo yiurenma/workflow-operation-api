@@ -1,6 +1,8 @@
 package com.workflow.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.workflow.common.exception.ApiBusinessException;
+import com.workflow.common.exception.ApiErrorCatalog;
 import com.workflow.controller.domain.Plugin;
 import com.workflow.controller.domain.WorkFlow;
 import com.workflow.dao.repository.*;
@@ -23,7 +25,6 @@ import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 
@@ -442,8 +443,11 @@ public class WorkflowUpdateController {
             )
             @RequestBody(required = false) @Valid WorkFlow workFlow) {
         if (workFlow == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Workflow body is required for update operation");
+            throw new ApiBusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    ApiErrorCatalog.WORKFLOW_BODY_REQUIRED,
+                    "Workflow body is required for update operation"
+            );
         }
 
         List<WorkflowEntitySetting> entitySettingList =
@@ -456,8 +460,11 @@ public class WorkflowUpdateController {
                     .enabled(true)
                     .build();
         } else if (entitySettingList.size() > 1) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Application name must exist exactly once; found: " + entitySettingList.size());
+            throw new ApiBusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    ApiErrorCatalog.WORKFLOW_APP_NOT_UNIQUE,
+                    "Application name must exist exactly once; found: " + entitySettingList.size()
+            );
         } else {
             entitySetting = entitySettingList.get(0);
         }
@@ -469,15 +476,20 @@ public class WorkflowUpdateController {
                 log.warn("Duplicate key during workflow update (attempt {}/{}): {}",
                         attempt, MAX_RETRY_ON_DUPLICATE_KEY, e.getMessage());
                 if (attempt == MAX_RETRY_ON_DUPLICATE_KEY) {
-                    throw new ResponseStatusException(
+                    throw new ApiBusinessException(
                             HttpStatus.CONFLICT,
+                            ApiErrorCatalog.WORKFLOW_UPDATE_DUPLICATE_KEY,
                             "Failed to update workflow after " + MAX_RETRY_ON_DUPLICATE_KEY + " retries due to duplicate key conflicts",
                             e
                     );
                 }
             }
         }
-        throw new ResponseStatusException(HttpStatus.CONFLICT, "Failed to update workflow");
+        throw new ApiBusinessException(
+                HttpStatus.CONFLICT,
+                ApiErrorCatalog.WORKFLOW_UPDATE_DUPLICATE_KEY,
+                "Failed to update workflow"
+        );
     }
 
     @Transactional

@@ -22,6 +22,21 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ApiBusinessException.class)
+    public ResponseEntity<ApiErrorResponse> handleApiBusinessException(
+            ApiBusinessException exception,
+            HttpServletRequest request) {
+        HttpStatus status = HttpStatus.resolve(exception.getStatusCode().value());
+        if (status == null) {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        ApiErrorCatalog error = exception.getErrorCatalog() != null
+                ? exception.getErrorCatalog()
+                : ApiErrorCatalog.byStatus(exception.getStatusCode());
+        String cause = firstNonBlank(exception.getReason(), error.description());
+        return buildErrorResponse(status, error, cause, request);
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ApiErrorResponse> handleResponseStatusException(
             ResponseStatusException exception,

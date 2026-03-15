@@ -31,6 +31,24 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void shouldBuildScenarioSpecificCodeFromApiBusinessException() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        ApiBusinessException exception = new ApiBusinessException(
+                HttpStatus.BAD_REQUEST,
+                ApiErrorCatalog.WORKFLOW_APP_NOT_UNIQUE,
+                "Application name must exist exactly once; found: 2"
+        );
+
+        var response = handler.handleApiBusinessException(exception, request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("WF-400-101", response.getBody().getErrorInfo().get(0).getCode());
+        assertEquals("Application name must exist exactly once; found: 2",
+                response.getBody().getErrorInfo().get(0).getDetail().getCause());
+    }
+
+    @Test
     void shouldBuildValidationError() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MissingServletRequestParameterException exception =

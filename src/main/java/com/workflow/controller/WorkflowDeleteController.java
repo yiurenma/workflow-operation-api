@@ -1,5 +1,7 @@
 package com.workflow.controller;
 
+import com.workflow.common.exception.ApiBusinessException;
+import com.workflow.common.exception.ApiErrorCatalog;
 import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMapping;
 import com.workflow.dao.repository.WorkflowEntitySetting;
 import com.workflow.dao.repository.WorkflowEntitySettingRepository;
@@ -24,7 +26,6 @@ import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -65,15 +66,21 @@ public class WorkflowDeleteController {
                 workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName(applicationName);
 
         if (entitySettingList.size() != 1) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Application name must exist exactly once; found: " + entitySettingList.size());
+            throw new ApiBusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    ApiErrorCatalog.WORKFLOW_APP_NOT_UNIQUE,
+                    "Application name must exist exactly once; found: " + entitySettingList.size()
+            );
         }
 
         WorkflowEntitySetting entitySetting = entitySettingList.get(0);
         Long entitySettingId = entitySetting.getId();
         if (!workflowReportRepository.findByWorkflowEntitySetting_Id(entitySettingId).isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Cannot delete workflow: reports exist for this application");
+            throw new ApiBusinessException(
+                    HttpStatus.CONFLICT,
+                    ApiErrorCatalog.WORKFLOW_DELETE_REPORT_EXISTS,
+                    "Cannot delete workflow: reports exist for this application"
+            );
         }
 
         deleteWorkflowRulesMappingsAndTypes(entitySetting);
@@ -103,8 +110,11 @@ public class WorkflowDeleteController {
             if (m.getLinkingId() == null || m.getLinkingId().isBlank()) {
                 log.error("Workflow entity and linking mapping has null or blank linkingId. Mapping: id={}, logicOrder={}, remark={}",
                         m.getId(), m.getLogicOrder(), m.getRemark());
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Workflow entity and linking mapping (id=" + m.getId() + ") has null or blank linkingId");
+                throw new ApiBusinessException(
+                        HttpStatus.BAD_REQUEST,
+                        ApiErrorCatalog.WORKFLOW_MAPPING_LINKING_ID_INVALID,
+                        "Workflow entity and linking mapping (id=" + m.getId() + ") has null or blank linkingId"
+                );
             }
         }
         List<String> linkingIds = mappings.stream().map(WorkflowEntityAndLinkingIdMapping::getLinkingId).distinct().toList();

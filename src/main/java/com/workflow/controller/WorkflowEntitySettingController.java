@@ -1,6 +1,8 @@
 package com.workflow.controller;
 
 import com.querydsl.core.types.Predicate;
+import com.workflow.common.exception.ApiBusinessException;
+import com.workflow.common.exception.ApiErrorCatalog;
 import com.workflow.dao.repository.WorkflowEntitySetting;
 import com.workflow.dao.repository.WorkflowEntitySettingRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,7 +24,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -95,8 +96,9 @@ public class WorkflowEntitySettingController {
         List<WorkflowEntitySetting> entitySettings =
                 workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName(applicationName);
         if (entitySettings.size() != 1) {
-            throw new ResponseStatusException(
+            throw new ApiBusinessException(
                     HttpStatus.BAD_REQUEST,
+                    ApiErrorCatalog.ENTITY_SETTING_HISTORY_APP_NOT_UNIQUE,
                     "Application name must exist exactly once; found: " + entitySettings.size()
             );
         }

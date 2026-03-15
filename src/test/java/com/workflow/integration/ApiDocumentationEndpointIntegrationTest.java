@@ -56,6 +56,8 @@ class ApiDocumentationEndpointIntegrationTest {
         assertTrue(apiDocs.contains("\"ApiErrorResponse\""));
         assertTrue(apiDocs.contains("WF-400-000"));
         assertTrue(apiDocs.contains("WF-400-001"));
+        assertTrue(apiDocs.contains("WF-400-101"));
+        assertTrue(apiDocs.contains("WF-409-101"));
         assertTrue(apiDocs.contains("WF-500-000"));
         assertTrue(apiDocs.contains("\"Business Error\""));
         assertTrue(apiDocs.contains("\"System Error\""));

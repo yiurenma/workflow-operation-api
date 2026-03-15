@@ -1,5 +1,7 @@
 package com.workflow.controller;
 
+import com.workflow.common.exception.ApiBusinessException;
+import com.workflow.common.exception.ApiErrorCatalog;
 import com.workflow.controller.domain.WorkFlow;
 import com.workflow.dao.repository.WorkflowEntitySetting;
 import com.workflow.dao.repository.WorkflowEntitySettingRepository;
@@ -15,7 +17,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -50,24 +51,33 @@ public class WorkflowAutoCopyController {
                     description = "Target application name") @NotNull String toApplicationName) {
 
         if (fromApplicationName.equals(toApplicationName)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Source and target application names must be different");
+            throw new ApiBusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    ApiErrorCatalog.AUTOCOPY_SOURCE_TARGET_SAME,
+                    "Source and target application names must be different"
+            );
         }
 
         List<WorkflowEntitySetting> entitySettingList =
                 workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName(fromApplicationName);
 
         if (entitySettingList.size() != 1) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Source application name must exist exactly once; found: " + entitySettingList.size());
+            throw new ApiBusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    ApiErrorCatalog.AUTOCOPY_SOURCE_NOT_UNIQUE,
+                    "Source application name must exist exactly once; found: " + entitySettingList.size()
+            );
         }
 
         WorkflowEntitySetting originalSetting = entitySettingList.get(0);
         List<WorkflowEntitySetting> targetSettingList =
                 workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName(toApplicationName);
         if (targetSettingList.size() > 1) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Target application name must exist at most once; found: " + targetSettingList.size());
+            throw new ApiBusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    ApiErrorCatalog.AUTOCOPY_TARGET_TOO_MANY,
+                    "Target application name must exist at most once; found: " + targetSettingList.size()
+            );
         }
 
         WorkflowEntitySetting targetSetting = targetSettingList.isEmpty()
