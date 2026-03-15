@@ -24,7 +24,9 @@ class SpringDocOpenUiConfigurationTest {
 
         Operation customized = customizer.customize(operation, handlerMethod);
         assertSame(operation, customized);
-        assertEquals("Internal server error", customized.getResponses().get("500").getDescription());
+        assertEquals("Business Error", customized.getResponses().get("400").getDescription());
+        assertEquals("Business Error", customized.getResponses().get("409").getDescription());
+        assertEquals("System Error", customized.getResponses().get("500").getDescription());
     }
 
     @Test
@@ -34,6 +36,8 @@ class SpringDocOpenUiConfigurationTest {
 
         assertEquals("Workflow Operation API", openAPI.getInfo().getTitle());
         assertEquals("v1", openAPI.getInfo().getVersion());
+        org.junit.jupiter.api.Assertions.assertTrue(openAPI.getInfo().getDescription().contains("WF-400-000"));
+        org.junit.jupiter.api.Assertions.assertTrue(openAPI.getInfo().getDescription().contains("WF-500-000"));
     }
 
     private void helper() {

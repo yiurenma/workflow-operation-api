@@ -43,4 +43,21 @@ class ApiDocumentationEndpointIntegrationTest {
                 "Expected Swagger UI endpoint to be available (200 or 3xx), actual: " + statusCode
         );
     }
+
+    @Test
+    @DisplayName("OpenAPI docs should include unified error schema and codes")
+    void openApiShouldIncludeUnifiedErrorSchemaAndCodes() throws Exception {
+        String apiDocs = mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertTrue(apiDocs.contains("\"ApiErrorResponse\""));
+        assertTrue(apiDocs.contains("WF-400-000"));
+        assertTrue(apiDocs.contains("WF-400-001"));
+        assertTrue(apiDocs.contains("WF-500-000"));
+        assertTrue(apiDocs.contains("\"Business Error\""));
+        assertTrue(apiDocs.contains("\"System Error\""));
+    }
 }
