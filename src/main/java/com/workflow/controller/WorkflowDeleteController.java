@@ -53,8 +53,14 @@ public class WorkflowDeleteController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Workflow deleted"),
-            @ApiResponse(responseCode = "400", description = "Application name does not exist exactly once or mapping is invalid"),
-            @ApiResponse(responseCode = "409", description = "Workflow cannot be deleted because reports exist")
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Bad request. Error codes: WF-400-101 (applicationName must exist exactly once), WF-400-202 (mapping linkingId invalid)."
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Business conflict. Error code: WF-409-201 (reports exist for this application)."
+            )
     })
     @Transactional
     @DeleteMapping(value = "/workflow", produces = MediaType.APPLICATION_JSON_VALUE)

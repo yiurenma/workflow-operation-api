@@ -41,7 +41,10 @@ public class WorkflowAutoCopyController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Workflow copied successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid source/target application names")
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Bad request. Error codes: WF-400-301 (source equals target), WF-400-302 (source must exist exactly once), WF-400-303 (target must exist at most once)."
+            )
     })
     @PostMapping(value = "/workflow/autoCopy", consumes = MediaType.APPLICATION_JSON_VALUE)
     public WorkFlow autoCopyWorkFlow(

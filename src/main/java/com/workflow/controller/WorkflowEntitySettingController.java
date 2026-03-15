@@ -52,7 +52,11 @@ public class WorkflowEntitySettingController {
                     """
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Entity settings loaded")
+            @ApiResponse(responseCode = "200", description = "Entity settings loaded"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Bad request. Error code: WF-400-001 (validation/query parameter binding failed)."
+            )
     })
     @Parameters(value = {
             @Parameter(name = "applicationName", description = "Fuzzy search keyword for applicationName (contains, ignore case)", example = "itest"),
@@ -83,7 +87,10 @@ public class WorkflowEntitySettingController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Revision history loaded"),
-            @ApiResponse(responseCode = "400", description = "applicationName must match exactly one entity setting")
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Bad request. Error code: WF-400-401 (applicationName must exist exactly once for history)."
+            )
     })
     @RequestMapping(
             method = RequestMethod.GET,

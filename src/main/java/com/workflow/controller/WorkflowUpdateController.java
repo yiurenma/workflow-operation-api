@@ -420,8 +420,14 @@ public class WorkflowUpdateController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Workflow saved successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid application/workflow payload"),
-            @ApiResponse(responseCode = "409", description = "Workflow update failed after duplicate key retries")
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Bad request. Error codes: WF-400-102 (workflow body required), WF-400-101 (applicationName duplicated), WF-400-001 (validation failed)."
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Business conflict. Error code: WF-409-101 (duplicate key conflict after retries)."
+            )
     })
     @Transactional
     @PostMapping(value = "/workflow", consumes = MediaType.APPLICATION_JSON_VALUE)

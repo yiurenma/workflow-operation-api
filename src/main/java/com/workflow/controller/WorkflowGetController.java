@@ -52,7 +52,10 @@ public class WorkflowGetController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Workflow loaded successfully"),
-            @ApiResponse(responseCode = "400", description = "Application name does not exist exactly once")
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Bad request. Error codes: WF-400-101 (applicationName must exist exactly once)."
+            )
     })
     @GetMapping(value = "/workflow", produces = MediaType.APPLICATION_JSON_VALUE)
     public WorkFlow getWorkFlow(
