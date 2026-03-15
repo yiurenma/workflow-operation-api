@@ -2,12 +2,14 @@ package com.workflow.common.exception;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class GlobalExceptionHandlerTest {
 
@@ -71,5 +73,42 @@ class GlobalExceptionHandlerTest {
         assertNotNull(response.getBody());
         assertEquals("WF-500-000", response.getBody().getErrorInfo().get(0).getCode());
         assertEquals("Internal server error", response.getBody().getErrorInfo().get(0).getDetail().getCause());
+    }
+
+    @Test
+    void shouldFallbackToInternalErrorWhenResponseStatusExceptionHasNonStandardStatusCode() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        ResponseStatusException exception = new ResponseStatusException(HttpStatusCode.valueOf(999), "custom");
+
+        var response = handler.handleResponseStatusException(exception, request);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("WF-500-000", response.getBody().getErrorInfo().get(0).getCode());
+    }
+
+    @Test
+    void shouldFallbackWhenApiBusinessExceptionHasNullErrorCatalog() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        ApiBusinessException exception = new ApiBusinessException(
+                HttpStatus.BAD_REQUEST, null, "some reason"
+        );
+
+        var response = handler.handleApiBusinessException(exception, request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("WF-400-000", response.getBody().getErrorInfo().get(0).getCode());
+        assertEquals("some reason", response.getBody().getErrorInfo().get(0).getDetail().getCause());
+    }
+
+    @Test
+    void shouldReturnNullCorrelationsWhenNoHeadersOrMdc() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        var response = handler.handleException(new RuntimeException("test"), request);
+
+        assertNotNull(response.getBody());
+        assertNull(response.getBody().getRequestCorrelation());
+        assertNull(response.getBody().getSessionCorrelation());
     }
 }
