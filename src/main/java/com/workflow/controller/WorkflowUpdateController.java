@@ -8,6 +8,7 @@ import com.workflow.common.util.Base64Util;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -38,6 +39,370 @@ import java.util.*;
 public class WorkflowUpdateController {
 
     private static final int MAX_RETRY_ON_DUPLICATE_KEY = 3;
+    private static final String WORKFLOW_REQUEST_BODY_EXAMPLE = """
+            {
+              "uiMapList": [
+                {
+                  "animated": true,
+                  "markerEnd": { "type": "arrowclosed" },
+                  "type": "buttonEdge",
+                  "style": { "strokeWidth": 2 },
+                  "zIndex": 1001,
+                  "source": "CONSUMER_1",
+                  "sourceHandle": "source-handle",
+                  "target": "IFELSE_2",
+                  "targetHandle": "target-handle",
+                  "id": "xy-edge__CONSUMER_1source-handle-IFELSE_2target-handle"
+                },
+                {
+                  "animated": true,
+                  "markerEnd": { "type": "arrowclosed" },
+                  "type": "buttonEdge",
+                  "style": { "strokeWidth": 2 },
+                  "zIndex": 1001,
+                  "source": "IFELSE_2",
+                  "sourceHandle": "source-handle",
+                  "target": "IFELSE_3",
+                  "targetHandle": "target-handle",
+                  "id": "xy-edge__IFELSE_2source-handle-IFELSE_3target-handle"
+                },
+                {
+                  "animated": true,
+                  "markerEnd": { "type": "arrowclosed" },
+                  "type": "buttonEdge",
+                  "style": { "strokeWidth": 2 },
+                  "zIndex": 1001,
+                  "source": "IFELSE_3",
+                  "sourceHandle": "source-handle",
+                  "target": "IFELSE_4",
+                  "targetHandle": "target-handle",
+                  "id": "xy-edge__IFELSE_3source-handle-IFELSE_4target-handle"
+                },
+                {
+                  "animated": true,
+                  "markerEnd": { "type": "arrowclosed" },
+                  "type": "buttonEdge",
+                  "style": { "strokeWidth": 2 },
+                  "zIndex": 1001,
+                  "source": "IFELSE_4",
+                  "sourceHandle": "source-handle",
+                  "target": "IFELSE_5",
+                  "targetHandle": "target-handle",
+                  "id": "xy-edge__IFELSE_4source-handle-IFELSE_5target-handle"
+                },
+                {
+                  "animated": true,
+                  "markerEnd": { "type": "arrowclosed" },
+                  "type": "buttonEdge",
+                  "style": { "strokeWidth": 2 },
+                  "zIndex": 1001,
+                  "source": "IFELSE_5",
+                  "sourceHandle": "source-handle",
+                  "target": "IFELSE_6",
+                  "targetHandle": "target-handle",
+                  "id": "xy-edge__IFELSE_5source-handle-IFELSE_6target-handle"
+                },
+                {
+                  "animated": true,
+                  "markerEnd": { "type": "arrowclosed" },
+                  "type": "buttonEdge",
+                  "style": { "strokeWidth": 2 },
+                  "zIndex": 1001,
+                  "source": "IFELSE_6",
+                  "sourceHandle": "source-handle",
+                  "target": "IFELSE_7",
+                  "targetHandle": "target-handle",
+                  "id": "xy-edge__IFELSE_6source-handle-IFELSE_7target-handle"
+                },
+                {
+                  "animated": true,
+                  "markerEnd": { "type": "arrowclosed" },
+                  "type": "buttonEdge",
+                  "style": { "strokeWidth": 2 },
+                  "zIndex": 1001,
+                  "source": "IFELSE_7",
+                  "sourceHandle": "source-handle",
+                  "target": "IFELSE_8",
+                  "targetHandle": "target-handle",
+                  "id": "xy-edge__IFELSE_7source-handle-IFELSE_8target-handle"
+                },
+                {
+                  "animated": true,
+                  "markerEnd": { "type": "arrowclosed" },
+                  "type": "buttonEdge",
+                  "style": { "strokeWidth": 2 },
+                  "zIndex": 1001,
+                  "source": "IFELSE_8",
+                  "sourceHandle": "source-handle",
+                  "target": "MESSAGE_9",
+                  "targetHandle": "target-handle",
+                  "id": "xy-edge__IFELSE_8source-handle-MESSAGE_9target-handle"
+                },
+                {
+                  "animated": true,
+                  "markerEnd": { "type": "arrowclosed" },
+                  "type": "buttonEdge",
+                  "style": { "strokeWidth": 2 },
+                  "zIndex": 1001,
+                  "source": "MESSAGE_9",
+                  "sourceHandle": "source-handle",
+                  "target": "MESSAGE_10",
+                  "targetHandle": "target-handle",
+                  "id": "xy-edge__MESSAGE_9source-handle-MESSAGE_10target-handle"
+                }
+              ],
+              "pluginList": [
+                {
+                  "id": 1,
+                  "linkingIdOfRuleListAndAction": "4_1_1",
+                  "ruleList": [
+                    {
+                      "key": "$.messageInformation.[?(!(@.enrichInformation.jointCustomerNumberList=~ /.+?/))]",
+                      "remark": "Record has no co-owners"
+                    }
+                  ],
+                  "action": {
+                    "provider": "CustomerDataService",
+                    "type": "CONSUMER",
+                    "remark": "Fetch entity info from data service by record ID",
+                    "httpRequestMethod": "GET",
+                    "httpRequestUrlWithQueryParameter": "https://example.com/api/entities",
+                    "internalHttpRequestUrlWithQueryParameter": "https://example.com/api/entities",
+                    "httpRequestHeaders": "{\\"Content-Type\\":\\"application/json\\"}",
+                    "httpRequestBody": "",
+                    "trackingNumberSchemaInHttpResponse": "{}"
+                  },
+                  "description": "Step 1: Fetch entity info by record ID",
+                  "uiMap": {
+                    "id": "CONSUMER_1",
+                    "type": "CONSUMER",
+                    "position": { "x": 100, "y": 100 },
+                    "measured": { "width": 320, "height": 92 }
+                  }
+                },
+                {
+                  "id": 2,
+                  "linkingIdOfRuleListAndAction": "4_2_2",
+                  "ruleList": [
+                    {
+                      "key": "$.messageInformation.[?(@.enrichInformation.jointCustomerNumberList=~ /.+?/)]",
+                      "remark": "Record has co-owners"
+                    }
+                  ],
+                  "action": {
+                    "provider": "SYSTEM",
+                    "type": "IFELSE",
+                    "remark": "Pick first participant from co-owner list",
+                    "elseLogic": "{\\"messageInformation\\":{\\"enrichInformation\\":{\\"customerNumber\\":\\"\\"}}}"
+                  },
+                  "description": "Step 2: For shared records, pick first participant and contact details",
+                  "uiMap": {
+                    "id": "IFELSE_2",
+                    "type": "IFELSE",
+                    "position": { "x": 100, "y": 200 },
+                    "measured": { "width": 320, "height": 92 }
+                  }
+                },
+                {
+                  "id": 3,
+                  "linkingIdOfRuleListAndAction": "4_3_3",
+                  "ruleList": [
+                    {
+                      "key": "$.messageInformation.enrichInformation.[?(@.customerNumber=~/.+?/)]",
+                      "remark": "Entity ID is present"
+                    }
+                  ],
+                  "action": {
+                    "provider": "SYSTEM",
+                    "type": "IFELSE",
+                    "remark": "Use the resolved entity ID"
+                  },
+                  "description": "Step 3: Check that entity ID is valid",
+                  "uiMap": {
+                    "id": "IFELSE_3",
+                    "type": "IFELSE",
+                    "position": { "x": 100, "y": 300 },
+                    "measured": { "width": 320, "height": 92 }
+                  }
+                },
+                {
+                  "id": 4,
+                  "linkingIdOfRuleListAndAction": "4_4_4",
+                  "ruleList": [
+                    {
+                      "key": "$.messageInformation.enrichInformation.[?(!(@.digitalGuidIdentity =~/.+?/))]",
+                      "remark": "Digital identity is missing"
+                    }
+                  ],
+                  "action": {
+                    "provider": "SYSTEM",
+                    "type": "IFELSE",
+                    "remark": "Set entity identifier to empty when no digital identity",
+                    "elseLogic": "{\\"messageInformation\\":{\\"enrichInformation\\":{\\"customerIdentifer\\":\\"\\"}}}"
+                  },
+                  "description": "Step 4: When no digital identity, set entity identifier to empty",
+                  "uiMap": {
+                    "id": "IFELSE_4",
+                    "type": "IFELSE",
+                    "position": { "x": 100, "y": 400 },
+                    "measured": { "width": 320, "height": 92 }
+                  }
+                },
+                {
+                  "id": 5,
+                  "linkingIdOfRuleListAndAction": "4_5_5",
+                  "ruleList": [
+                    {
+                      "key": "$.messageInformation.enrichInformation.[?(@.digitalGuidIdentity =~/.+?/)]",
+                      "remark": "Digital identity is present"
+                    }
+                  ],
+                  "action": {
+                    "provider": "SYSTEM",
+                    "type": "IFELSE",
+                    "remark": "Set entity identifier to SourceA when digital identity exists",
+                    "elseLogic": "{\\"messageInformation\\":{\\"enrichInformation\\":{\\"customerIdentifer\\":\\"SourceA\\"}}}"
+                  },
+                  "description": "Step 5: When digital identity exists, set entity identifier to SourceA",
+                  "uiMap": {
+                    "id": "IFELSE_5",
+                    "type": "IFELSE",
+                    "position": { "x": 100, "y": 500 },
+                    "measured": { "width": 320, "height": 92 }
+                  }
+                },
+                {
+                  "id": 6,
+                  "linkingIdOfRuleListAndAction": "4_6_6",
+                  "ruleList": [
+                    {
+                      "key": "$.messageInformation[?(@.event == \\"EventTypeA\\" && @.direction== \\"Inbound\\")]",
+                      "remark": "Type A event and inbound direction"
+                    }
+                  ],
+                  "action": {
+                    "provider": "SYSTEM",
+                    "type": "IFELSE",
+                    "remark": "Set counterparty description to \\"with the counterparty\\"",
+                    "elseLogic": "{\\"messageInformation\\":{\\"enrichInformation\\":{\\"receivingBankDes\\":\\" with the counterparty\\"}}}"
+                  },
+                  "description": "Step 6: For type A event, set counterparty description",
+                  "uiMap": {
+                    "id": "IFELSE_6",
+                    "type": "IFELSE",
+                    "position": { "x": 100, "y": 600 },
+                    "measured": { "width": 320, "height": 92 }
+                  }
+                },
+                {
+                  "id": 7,
+                  "linkingIdOfRuleListAndAction": "4_7_7",
+                  "ruleList": [
+                    {
+                      "key": "$.messageInformation[?((@.event == \\"EventTypeB\\" || @.event == \\"EventTypeC\\") && @.direction== \\"Inbound\\")]",
+                      "remark": "Type B or C event and inbound direction"
+                    }
+                  ],
+                  "action": {
+                    "provider": "SYSTEM",
+                    "type": "IFELSE",
+                    "remark": "Set counterparty description to \\"requested by the counterparty\\"",
+                    "elseLogic": "{\\"messageInformation\\":{\\"enrichInformation\\":{\\"receivingBankDes\\":\\" requested by the counterparty\\"}}}"
+                  },
+                  "description": "Step 7: For type B/C event, set receiver description",
+                  "uiMap": {
+                    "id": "IFELSE_7",
+                    "type": "IFELSE",
+                    "position": { "x": 100, "y": 700 },
+                    "measured": { "width": 320, "height": 92 }
+                  }
+                },
+                {
+                  "id": 8,
+                  "linkingIdOfRuleListAndAction": "4_8_8",
+                  "ruleList": [
+                    {
+                      "key": "$.messageInformation[?(@.event == \\"EventTypeD\\" && @.direction== \\"Inbound\\")]",
+                      "remark": "Type D event and inbound direction"
+                    }
+                  ],
+                  "action": {
+                    "provider": "SYSTEM",
+                    "type": "IFELSE",
+                    "remark": "Set counterparty description to \\"by the counterparty\\"",
+                    "elseLogic": "{\\"messageInformation\\":{\\"enrichInformation\\":{\\"receivingBankDes\\":\\" by the counterparty\\"}}}"
+                  },
+                  "description": "Step 8: For type D event, set counterparty description",
+                  "uiMap": {
+                    "id": "IFELSE_8",
+                    "type": "IFELSE",
+                    "position": { "x": 100, "y": 800 },
+                    "measured": { "width": 320, "height": 92 }
+                  }
+                },
+                {
+                  "id": 9,
+                  "linkingIdOfRuleListAndAction": "4_9_9",
+                  "ruleList": [
+                    {
+                      "key": "$.[?(@.messageInformation.enrichInformation.globalUserIdOfSoleCustomer=~/.+?/ || @.messageContactInfo.emailAddress=~/.+?/)]",
+                      "remark": "At least one of user ID, email, or phone is present"
+                    }
+                  ],
+                  "action": {
+                    "provider": "MessagingService",
+                    "type": "MESSAGE",
+                    "remark": "Send notification via messaging platform",
+                    "httpRequestMethod": "POST",
+                    "httpRequestUrlWithQueryParameter": "https://example.com/async",
+                    "internalHttpRequestUrlWithQueryParameter": "https://example.com/async",
+                    "httpRequestHeaders": "{\\"Content-Type\\":\\"application/json\\"}",
+                    "httpRequestBody": "{}",
+                    "trackingNumberSchemaInHttpResponse": "{}"
+                  },
+                  "description": "Step 9: Send message notification",
+                  "uiMap": {
+                    "id": "MESSAGE_9",
+                    "type": "MESSAGE",
+                    "position": { "x": 100, "y": 900 },
+                    "measured": { "width": 320, "height": 92 }
+                  }
+                },
+                {
+                  "id": 10,
+                  "linkingIdOfRuleListAndAction": "4_10_10",
+                  "ruleList": [
+                    {
+                      "key": "$.messageInformation.[?(@.enrichInformation.jointCustomerNumberList=~ /.+?/)]",
+                      "remark": "Record has co-owners"
+                    },
+                    {
+                      "key": "$[?(!(@.originMessageRecordId=~/.+?/))]",
+                      "remark": "Not a retry request"
+                    }
+                  ],
+                  "action": {
+                    "provider": "SYSTEM",
+                    "type": "MESSAGE",
+                    "remark": "Recursively process each co-owner",
+                    "httpRequestMethod": "POST",
+                    "httpRequestUrlWithQueryParameter": "http://localhost/api/message",
+                    "internalHttpRequestUrlWithQueryParameter": "http://localhost/api/message",
+                    "httpRequestHeaders": "{\\"Content-Type\\":\\"application/json\\"}",
+                    "httpRequestBody": "<<<$.messageInformation>>>",
+                    "trackingNumberSchemaInHttpResponse": ""
+                  },
+                  "description": "Step 10: For shared records, recursively process each co-owner",
+                  "uiMap": {
+                    "id": "MESSAGE_10",
+                    "type": "MESSAGE",
+                    "position": { "x": 100, "y": 1000 },
+                    "measured": { "width": 320, "height": 92 }
+                  }
+                }
+              ]
+            }
+            """;
 
     private final WorkflowEntitySettingRepository workflowEntitySettingRepository;
     private final WorkflowEntityAndLinkingIdMappingRepository workflowEntityAndLinkingIdMappingRepository;
@@ -65,7 +430,15 @@ public class WorkflowUpdateController {
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
                     description = "Workflow definition with ordered plugin list and optional uiMapList",
-                    content = @Content(schema = @Schema(implementation = WorkFlow.class))
+                    content = @Content(
+                            schema = @Schema(implementation = WorkFlow.class),
+                            examples = @ExampleObject(
+                                    name = "workflow-integration-test-request-body",
+                                    summary = "Request body used in integration tests",
+                                    description = "Copied from src/test/resources/workflow-integration-test-data.json",
+                                    value = WORKFLOW_REQUEST_BODY_EXAMPLE
+                            )
+                    )
             )
             @RequestBody(required = false) @Valid WorkFlow workFlow) {
         if (workFlow == null) {
