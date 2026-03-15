@@ -1,5 +1,12 @@
 package com.workflow.common.configuration;
 
+import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMapping;
+import com.workflow.dao.repository.WorkflowEntitySetting;
+import com.workflow.dao.repository.WorkflowRecord;
+import com.workflow.dao.repository.WorkflowReport;
+import com.workflow.dao.repository.WorkflowRule;
+import com.workflow.dao.repository.WorkflowRuleAndType;
+import com.workflow.dao.repository.WorkflowType;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.rest.core.config.MetadataConfiguration;
 import org.springframework.data.rest.core.config.RepositoryRestConfiguration;
@@ -23,5 +30,14 @@ class SpringDataRestConfigurationTest {
         configuration.configureRepositoryRestConfiguration(repositoryRestConfiguration, corsRegistry);
 
         verify(metadataConfiguration).setAlpsEnabled(false);
+        verify(repositoryRestConfiguration).exposeIdsFor(
+                WorkflowEntitySetting.class,
+                WorkflowEntityAndLinkingIdMapping.class,
+                WorkflowRule.class,
+                WorkflowType.class,
+                WorkflowRuleAndType.class,
+                WorkflowRecord.class,
+                WorkflowReport.class
+        );
     }
 }
