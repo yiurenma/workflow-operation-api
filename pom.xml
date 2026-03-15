@@ -11,16 +11,31 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.snails</groupId>
-    <artifactId>lowcode-workflow</artifactId>
+    <groupId>${resolved.groupId}</groupId>
+    <artifactId>workflow-operation-api</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <name>lowcode-workflow</name>
     <description>Low-code project built with Spring Boot and JDK 21</description>
 
     <properties>
+        <resolved.groupId>com.snails</resolved.groupId>
         <java.version>21</java.version>
         <querydsl.version>5.1.0</querydsl.version>
     </properties>
+
+    <profiles>
+        <profile>
+            <id>env-group-id</id>
+            <activation>
+                <property>
+                    <name>env.MAVEN_GROUP_ID</name>
+                </property>
+            </activation>
+            <properties>
+                <resolved.groupId>${env.MAVEN_GROUP_ID}</resolved.groupId>
+            </properties>
+        </profile>
+    </profiles>
 
     <dependencies>
         <!-- Spring Boot Web -->
