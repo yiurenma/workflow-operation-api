@@ -65,6 +65,15 @@ public class WorkflowEntitySetting extends Auditable implements Serializable {
     @Comment("Whether this entity setting is active")
     private boolean enabled;
 
+    @Column(nullable = true)
+    @Comment("Whether duplicate-record errors should be ignored")
+    private boolean ignoreDuplicateRecordError;
+
+    @Column(length = 10000)
+    @Comment("Retry configuration payload (JSON/text)")
+    private String retryProperties;
+
+    @Lob
     @Column(columnDefinition = "TEXT")
     @Comment("Base64-encoded workflow UI map (plugin list, uiMap, uiMapList)")
     private String workflow;
