@@ -22,6 +22,9 @@ Runs at `http://localhost:8080`.
 | POST | `/api/workflow` | Create or update workflow (delete then create) |
 | POST | `/api/workflow/autoCopy` | Copy workflow from one application to another |
 | DELETE | `/api/workflow` | Delete workflow by application name |
+| **Entity Setting Query APIs** | | |
+| GET | `/api/workflow/entity-setting` | Query entity settings with QueryDSL predicate (supports fuzzy `applicationName`) |
+| GET | `/api/workflow/entity-setting/history` | Get entity setting revision history by `applicationName` |
 | **Docs & tools** | | |
 | GET | `/swagger-ui.html` | Interactive API documentation (Swagger UI) |
 | GET | `/v3/api-docs` | OpenAPI 3.0 JSON spec |
@@ -38,6 +41,16 @@ Runs at `http://localhost:8080`.
 | **Create Workflow** | Define a new workflow in the low-code platform |
 | **Delete Workflow** | Remove a workflow by application name |
 | **Update Workflow** | Replace an existing workflow (internally: delete + create) |
+
+### Entity Setting Query APIs (for admin/audit)
+
+- `GET /api/workflow/entity-setting`
+  - Query through `@QuerydslPredicate(root = WorkflowEntitySetting.class)`.
+  - Includes fuzzy search for `applicationName` (`containsIgnoreCase`), e.g.
+    - `/api/workflow/entity-setting?applicationName=itest&page=0&size=20`
+- `GET /api/workflow/entity-setting/history`
+  - Returns revision history from Envers by exact `applicationName`, e.g.
+    - `/api/workflow/entity-setting/history?applicationName=ITEST_APP&page=0&size=20`
 
 ### Online API (Request Execution)
 
