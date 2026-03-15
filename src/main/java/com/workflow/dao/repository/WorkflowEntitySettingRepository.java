@@ -1,8 +1,11 @@
 package com.workflow.dao.repository;
 
+import com.querydsl.core.types.dsl.StringExpression;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.querydsl.binding.QuerydslBinderCustomizer;
+import org.springframework.data.querydsl.binding.QuerydslBindings;
 import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.data.repository.history.RevisionRepository;
@@ -21,6 +24,13 @@ public interface WorkflowEntitySettingRepository
     PagingAndSortingRepository<WorkflowEntitySetting, Long>,
     JpaSpecificationExecutor<WorkflowEntitySetting>,
     RevisionRepository<WorkflowEntitySetting, Long, Integer> ,
-    QuerydslPredicateExecutor<WorkflowEntitySetting> {
+    QuerydslPredicateExecutor<WorkflowEntitySetting>,
+    QuerydslBinderCustomizer<QWorkflowEntitySetting> {
     List<WorkflowEntitySetting> getWorkflowEntitySettingByApplicationName(String applicationName);
+
+    @Override
+    default void customize(QuerydslBindings bindings, QWorkflowEntitySetting root) {
+        // Make applicationName search fuzzy by default for querydsl predicate API.
+        bindings.bind(root.applicationName).first(StringExpression::containsIgnoreCase);
+    }
 }
