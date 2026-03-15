@@ -77,7 +77,7 @@
             <artifactId>spring-boot-starter-data-rest</artifactId>
         </dependency>
 
-        <!-- SpringDoc OpenAPI / Swagger UI -->
+        <!-- SpringDoc OpenAPI / Swagger UI (ReDoc consumes /v3/api-docs) -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>

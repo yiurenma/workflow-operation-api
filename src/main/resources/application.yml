@@ -21,7 +21,7 @@ spring:
 server:
   port: 8080
 
-# SpringDoc / Swagger UI
+# SpringDoc OpenAPI (consumed by ReDoc and Swagger UI)
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -67,6 +67,7 @@ logbook:
     - /v3/api-docs/**
     - /swagger-ui/**
     - /swagger-ui.html
+    - /redoc.html
   obfuscate:
     headers:
       - Authorization
