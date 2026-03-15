@@ -48,9 +48,9 @@ management:
       show-details: when-authorized
 
 logging:
-  # Put trace/span into each log line.
   pattern:
-    level: "%5p [${spring.application.name:-},%X{traceId:-},%X{spanId:-}]"
+    # Keep level concise; app name and trace correlation are already printed by Boot 4 defaults.
+    level: "%5p"
   level:
     # Logbook prints request/response only when this logger is TRACE.
     org.zalando.logbook: TRACE
