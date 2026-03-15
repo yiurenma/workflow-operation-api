@@ -26,7 +26,8 @@ Runs at `http://localhost:8080`.
 | GET | `/api/workflow/entity-setting` | Query entity settings with QueryDSL predicate (supports fuzzy `applicationName`) |
 | GET | `/api/workflow/entity-setting/history` | Get entity setting revision history by `applicationName` |
 | **Docs & tools** | | |
-| GET | `/swagger-ui.html` | Interactive API documentation (Swagger UI) |
+| GET | `/redoc.html` | Interactive API documentation (ReDoc) |
+| GET | `/swagger-ui.html` | Swagger UI endpoint (based on same OpenAPI spec) |
 | GET | `/v3/api-docs` | OpenAPI 3.0 JSON spec |
 | GET | `/actuator/health` | Actuator health endpoint |
 | GET | `/actuator/info` | Actuator info |
