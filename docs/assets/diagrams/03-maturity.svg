@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 120" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <rect width="100%" height="100%" fill="#f8fafc"/>
+  <text x="16" y="22" fill="#64748b" font-size="11">03 · §ÁŸ¦ / Product maturity</text>
+  <g transform="translate(40,45)">
+    <rect x="0" y="0" width="180" height="48" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+    <text x="90" y="22" text-anchor="middle" fill="#1e40af" font-weight="600">P0 Ïb ú</text>
+    <text x="90" y="38" text-anchor="middle" fill="#1e40af" font-size="11">Hardening</text>
+    <text x="200" y="32" font-size="20" fill="#64748b">’</text>
+    <rect x="230" y="0" width="180" height="48" rx="10" fill="#fef3c7" stroke="#d97706"/>
+    <text x="320" y="22" text-anchor="middle" fill="#92400e" font-weight="600">P1 ‹ MVP</text>
+    <text x="320" y="38" text-anchor="middle" fill="#92400e" font-size="11">MVP</text>
+    <text x="430" y="32" font-size="20" fill="#64748b">’</text>
+    <rect x="460" y="0" width="200" height="48" rx="10" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="560" y="22" text-anchor="middle" fill="#14532d" font-weight="600">P2 ï:ï¤Ø</text>
+    <text x="560" y="38" text-anchor="middle" fill="#14532d" font-size="11">Demo-ready</text>
+  </g>
+</svg>
