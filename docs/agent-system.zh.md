@@ -1,6 +1,6 @@
 # 自动化角色体系
 
-> 本文档为**中文版**。英文版见 [`agent-system.en.md`](agent-system.en.md)。流程图为 **Mermaid** 源码（在支持 Mermaid 的编辑器或 GitHub 中可渲染），**不附**独立图片文件。
+> 流程图为 **Mermaid** 源码（在支持 Mermaid 的编辑器或 GitHub 中可渲染），**不附**独立图片文件。
 >
 > **快速导航：** [导语](#intro) · [读前须知](#read-first) · [角色注册表](#registry) · [协作原则](#principles) · [唯一真人模式](#human-mode) · [编排完整图](#orchestration-full) · [产品成熟度](#maturity) · [纯自动化链](#autochain) · [角色定义卡](#role-cards) · [落地建议](#execution) · [附录](#appendix)
 
