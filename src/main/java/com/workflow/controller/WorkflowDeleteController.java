@@ -6,7 +6,6 @@ import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMapping;
 import com.workflow.dao.repository.WorkflowEntitySetting;
 import com.workflow.dao.repository.WorkflowEntitySettingRepository;
 import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMappingRepository;
-import com.workflow.dao.repository.WorkflowReportRepository;
 import com.workflow.dao.repository.WorkflowRule;
 import com.workflow.dao.repository.WorkflowRuleAndType;
 import com.workflow.dao.repository.WorkflowRuleAndTypeRepository;
@@ -42,24 +41,19 @@ public class WorkflowDeleteController {
 
     private final WorkflowEntitySettingRepository workflowEntitySettingRepository;
     private final WorkflowEntityAndLinkingIdMappingRepository workflowEntityAndLinkingIdMappingRepository;
-    private final WorkflowReportRepository workflowReportRepository;
     private final WorkflowRuleAndTypeRepository workflowRuleAndTypeRepository;
     private final WorkflowRuleRepository workflowRuleRepository;
     private final WorkflowTypeRepository workflowTypeRepository;
 
     @Operation(
             summary = "Delete workflow by application name",
-            description = "Deletes workflow mappings/rules/types and then removes entity setting when no workflow reports exist."
+            description = "Deletes workflow mappings/rules/types and removes entity setting. Existing WORKFLOW_RECORD rows are retained as orphans."
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Workflow deleted"),
             @ApiResponse(
                     responseCode = "400",
                     description = "Bad request. Error codes: WF-400-101 (applicationName must exist exactly once), WF-400-202 (mapping linkingId invalid)."
-            ),
-            @ApiResponse(
-                    responseCode = "409",
-                    description = "Business conflict. Error code: WF-409-201 (reports exist for this application)."
             )
     })
     @Transactional
@@ -80,18 +74,10 @@ public class WorkflowDeleteController {
         }
 
         WorkflowEntitySetting entitySetting = entitySettingList.get(0);
-        Long entitySettingId = entitySetting.getId();
-        if (!workflowReportRepository.findByWorkflowEntitySetting_Id(entitySettingId).isEmpty()) {
-            throw new ApiBusinessException(
-                    HttpStatus.CONFLICT,
-                    ApiErrorCatalog.WORKFLOW_DELETE_REPORT_EXISTS,
-                    "Cannot delete workflow: reports exist for this application"
-            );
-        }
 
         deleteWorkflowRulesMappingsAndTypes(entitySetting);
 
-        log.info("Going to delete entity: {} {}", applicationName, entitySettingId);
+        log.info("Going to delete entity: {} {}", applicationName, entitySetting.getId());
         workflowEntitySettingRepository.delete(entitySetting);
 
         log.info("Workflow and entity removed for application: {} (report/record kept)", applicationName);

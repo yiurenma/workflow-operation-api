@@ -25,8 +25,10 @@ public enum ApiErrorCatalog {
     AUTOCOPY_SOURCE_NOT_UNIQUE("WF-400-302", "Source application name must exist exactly once"),
     AUTOCOPY_TARGET_TOO_MANY("WF-400-303", "Target application name must exist at most once"),
 
-    // Entity setting query/history
-    ENTITY_SETTING_HISTORY_APP_NOT_UNIQUE("WF-400-401", "History query requires application name that exists exactly once");
+    // Entity setting query/history/update
+    ENTITY_SETTING_HISTORY_APP_NOT_UNIQUE("WF-400-401", "History query requires application name that exists exactly once"),
+    ENTITY_SETTING_NOT_FOUND("WF-404-101", "Entity setting not found for the given application name"),
+    ENTITY_SETTING_APP_NOT_UNIQUE("WF-400-402", "Entity setting applicationName must exist exactly once");
 
     private final String code;
     private final String description;
