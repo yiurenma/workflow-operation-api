@@ -6,6 +6,8 @@ import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMapping;
 import com.workflow.dao.repository.WorkflowEntitySetting;
 import com.workflow.dao.repository.WorkflowEntitySettingRepository;
 import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMappingRepository;
+import com.workflow.dao.repository.WorkflowReport;
+import com.workflow.dao.repository.WorkflowReportRepository;
 import com.workflow.dao.repository.WorkflowRule;
 import com.workflow.dao.repository.WorkflowRuleAndType;
 import com.workflow.dao.repository.WorkflowRuleAndTypeRepository;
@@ -44,6 +46,7 @@ public class WorkflowDeleteController {
     private final WorkflowRuleAndTypeRepository workflowRuleAndTypeRepository;
     private final WorkflowRuleRepository workflowRuleRepository;
     private final WorkflowTypeRepository workflowTypeRepository;
+    private final WorkflowReportRepository workflowReportRepository;
 
     @Operation(
             summary = "Delete workflow by application name",
@@ -76,6 +79,12 @@ public class WorkflowDeleteController {
         WorkflowEntitySetting entitySetting = entitySettingList.get(0);
 
         deleteWorkflowRulesMappingsAndTypes(entitySetting);
+
+        List<WorkflowReport> reports = workflowReportRepository.findByWorkflowEntitySetting_Id(entitySetting.getId());
+        if (!reports.isEmpty()) {
+            workflowReportRepository.deleteAll(reports);
+            workflowReportRepository.flush();
+        }
 
         log.info("Going to delete entity: {} {}", applicationName, entitySetting.getId());
         workflowEntitySettingRepository.delete(entitySetting);

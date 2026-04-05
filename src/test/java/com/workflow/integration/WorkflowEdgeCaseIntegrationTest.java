@@ -120,12 +120,12 @@ class WorkflowEdgeCaseIntegrationTest extends AbstractWorkflowIntegrationTest {
     }
 
     @Nested
-    @DisplayName("DELETE blocked when reports exist (409)")
-    class DeleteBlockedByReports {
+    @DisplayName("DELETE succeeds even when reports exist (OP-03: WF-409-201 removed)")
+    class DeleteNotBlockedByReports {
 
         @Test
-        @DisplayName("DELETE returns 409 when workflow has associated reports")
-        void deleteReturns409WhenReportsExist() throws Exception {
+        @DisplayName("DELETE succeeds regardless of associated workflow reports")
+        void deleteSucceedsEvenWhenReportsExist() throws Exception {
             postWorkflow(APP_NAME, loadTestWorkflow());
 
             WorkflowEntitySetting setting =
@@ -135,12 +135,10 @@ class WorkflowEdgeCaseIntegrationTest extends AbstractWorkflowIntegrationTest {
                     .cronExpression("0 0 * * *").reportTimeRangeByHours(24).timezone("UTC").build());
 
             mockMvc.perform(delete("/api/workflow").param("applicationName", APP_NAME))
-                    .andExpect(status().isConflict());
+                    .andExpect(status().isOk());
 
-            assertEquals(1, entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).size(),
-                    "Entity setting should still exist after blocked delete");
-            assertFalse(linkingIdMappingRepository.findAllByWorkflowEntitySettingId(setting.getId()).isEmpty(),
-                    "Mappings should still exist after blocked delete");
+            assertEquals(0, entitySettingRepository.getWorkflowEntitySettingByApplicationName(APP_NAME).size(),
+                    "Entity setting should be deleted");
         }
     }
 

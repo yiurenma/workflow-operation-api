@@ -1,5 +1,6 @@
 package com.workflow.controller;
 
+import com.workflow.common.exception.ApiBusinessException;
 import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMapping;
 import com.workflow.dao.repository.WorkflowEntityAndLinkingIdMappingRepository;
 import com.workflow.dao.repository.WorkflowEntitySetting;
@@ -19,7 +20,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Set;
@@ -39,13 +39,13 @@ class WorkflowDeleteControllerTest {
     @Mock
     private WorkflowEntityAndLinkingIdMappingRepository workflowEntityAndLinkingIdMappingRepository;
     @Mock
-    private WorkflowReportRepository workflowReportRepository;
-    @Mock
     private WorkflowRuleAndTypeRepository workflowRuleAndTypeRepository;
     @Mock
     private WorkflowRuleRepository workflowRuleRepository;
     @Mock
     private WorkflowTypeRepository workflowTypeRepository;
+    @Mock
+    private WorkflowReportRepository workflowReportRepository;
 
     private WorkflowDeleteController controller;
 
@@ -54,10 +54,10 @@ class WorkflowDeleteControllerTest {
         controller = new WorkflowDeleteController(
                 workflowEntitySettingRepository,
                 workflowEntityAndLinkingIdMappingRepository,
-                workflowReportRepository,
                 workflowRuleAndTypeRepository,
                 workflowRuleRepository,
-                workflowTypeRepository
+                workflowTypeRepository,
+                workflowReportRepository
         );
     }
 
@@ -65,30 +65,32 @@ class WorkflowDeleteControllerTest {
     void deleteWorkFlowShouldThrowBadRequestWhenApplicationDoesNotExistExactlyOnce() {
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of());
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
+        ApiBusinessException exception = assertThrows(
+                ApiBusinessException.class,
                 () -> controller.deleteWorkFlow("app")
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
     }
 
+    /**
+     * TC-03-1: Delete succeeds regardless of existing WORKFLOW_RECORD rows (OP-03 — WF-409-201 removed).
+     */
     @Test
-    void deleteWorkFlowShouldThrowConflictWhenReportExists() {
+    void deleteWorkFlowShouldSucceedEvenWhenWorkflowRecordsExist() {
         WorkflowEntitySetting setting = WorkflowEntitySetting.builder().id(10L).applicationName("app").build();
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of(setting));
-        when(workflowReportRepository.findByWorkflowEntitySetting_Id(10L)).thenReturn(List.of(WorkflowReport.builder().id(1L).build()));
+        when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(10L)).thenReturn(List.of());
+        when(workflowReportRepository.findByWorkflowEntitySetting_Id(10L)).thenReturn(List.of());
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
-                () -> controller.deleteWorkFlow("app")
-        );
+        // Should not throw — WORKFLOW_RECORD rows no longer block deletion
+        controller.deleteWorkFlow("app");
 
-        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(workflowEntitySettingRepository).delete(setting);
     }
 
     @Test
-    void deleteWorkFlowShouldDeleteMappingsRulesTypesAndEntityWhenNoReports() {
+    void deleteWorkFlowShouldDeleteMappingsRulesTypesAndEntity() {
         WorkflowEntitySetting setting = WorkflowEntitySetting.builder().id(11L).applicationName("app").build();
         WorkflowEntityAndLinkingIdMapping mapping1 = WorkflowEntityAndLinkingIdMapping.builder()
                 .id(101L).linkingId("L1").build();
@@ -105,9 +107,9 @@ class WorkflowDeleteControllerTest {
         WorkflowRuleAndType rt3 = WorkflowRuleAndType.builder().id(403L).linkingId("L2").workflowRule(rule1).workflowType(type1).build();
 
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of(setting));
-        when(workflowReportRepository.findByWorkflowEntitySetting_Id(11L)).thenReturn(List.of());
         when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(11L)).thenReturn(List.of(mapping1, mapping2));
         when(workflowRuleAndTypeRepository.findAllByLinkingIdIn(anyList())).thenReturn(List.of(rt1, rt2, rt3));
+        when(workflowReportRepository.findByWorkflowEntitySetting_Id(11L)).thenReturn(List.of());
 
         controller.deleteWorkFlow("app");
 
@@ -136,15 +138,13 @@ class WorkflowDeleteControllerTest {
                 .build();
 
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("app")).thenReturn(List.of(setting));
-        when(workflowReportRepository.findByWorkflowEntitySetting_Id(12L)).thenReturn(List.of());
         when(workflowEntityAndLinkingIdMappingRepository.findAllByWorkflowEntitySettingId(12L)).thenReturn(List.of(mapping));
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
+        ApiBusinessException exception = assertThrows(
+                ApiBusinessException.class,
                 () -> controller.deleteWorkFlow("app")
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertEquals("Workflow entity and linking mapping (id=103) has null or blank linkingId", exception.getReason());
     }
 }

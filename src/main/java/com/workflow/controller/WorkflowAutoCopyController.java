@@ -46,7 +46,7 @@ public class WorkflowAutoCopyController {
                     description = "Bad request. Error codes: WF-400-301 (source equals target), WF-400-302 (source must exist exactly once), WF-400-303 (target must exist at most once)."
             )
     })
-    @PostMapping(value = "/workflow/autoCopy", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/workflow/autoCopy", produces = MediaType.APPLICATION_JSON_VALUE)
     public WorkFlow autoCopyWorkFlow(
             @RequestParam(required = true) @Parameter(example = "APP_A", required = true,
                     description = "Source application name") @NotNull String fromApplicationName,

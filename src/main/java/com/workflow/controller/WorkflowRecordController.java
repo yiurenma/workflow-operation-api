@@ -10,11 +10,13 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -67,9 +69,19 @@ public class WorkflowRecordController {
 
         log.info("Listing workflow records — applicationName={}, overallStatus={}, from={}, to={}",
                 applicationName, overallStatus, from, to);
-        return workflowRecordRepository.findByFilters(
-                applicationName, overallStatus, transactionConfirmationNumber, trackingNumber, customerId, from, to, pageable
-        );
+
+        Specification<WorkflowRecord> spec = (root, query, cb) -> {
+            java.util.List<Predicate> predicates = new java.util.ArrayList<>();
+            if (applicationName != null) predicates.add(cb.equal(root.get("applicationName"), applicationName));
+            if (overallStatus != null) predicates.add(cb.equal(root.get("overallStatus"), overallStatus));
+            if (transactionConfirmationNumber != null) predicates.add(cb.equal(root.get("transactionConfirmationNumber"), transactionConfirmationNumber));
+            if (trackingNumber != null) predicates.add(cb.equal(root.get("trackingNumber"), trackingNumber));
+            if (customerId != null) predicates.add(cb.equal(root.get("customerId"), customerId));
+            if (from != null) predicates.add(cb.greaterThanOrEqualTo(root.get("createdDateTime"), from));
+            if (to != null) predicates.add(cb.lessThanOrEqualTo(root.get("createdDateTime"), to));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return workflowRecordRepository.findAll(spec, pageable);
     }
 
     @Operation(
