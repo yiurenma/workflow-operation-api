@@ -19,7 +19,8 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 server:
-  port: 8080
+  # Render injects PORT; default 8080 for local
+  port: ${PORT:8080}
 
 # SpringDoc OpenAPI (consumed by ReDoc and Swagger UI)
 springdoc:

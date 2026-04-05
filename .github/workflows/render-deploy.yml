@@ -1,0 +1,27 @@
+# After CI passes on main, trigger a Render deploy via Deploy Hook (optional).
+# 1) Render → your Web Service → Manual Deploy → Deploy Hook → copy URL
+# 2) GitHub repo → Settings → Secrets → Actions → New: RENDER_DEPLOY_HOOK_URL
+# 3) In Render: enable "Wait for CI" / disable plain auto-deploy if you only want hook-based deploys
+name: Deploy to Render
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main, master]
+
+jobs:
+  trigger-render:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not set — skipping (Render may still auto-deploy from Git)."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK_URL"
+          echo "Deploy hook invoked."

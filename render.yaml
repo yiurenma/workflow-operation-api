@@ -1,0 +1,13 @@
+# Render Blueprint — optional if you manage the service via repo.
+# If you already created a Web Service in the dashboard, either:
+# - Point that service to Dockerfile deploy, or
+# - Match `name` here to an existing service so Blueprint can sync it.
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: workflow-operation-api
+    runtime: docker
+    plan: starter
+    healthCheckPath: /actuator/health
+    # Dockerfile at repo root (default). Set SPRING_DATASOURCE_* (or your Neon JDBC vars) in the dashboard.
