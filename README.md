@@ -1,6 +1,15 @@
 # Workflow Operation API
 
-A Workflow Operation API platform built with **Spring Boot 4.0.3** and **JDK 21**. It provides REST APIs for a UI to define and manage workflows (rules, types, entity settings), and a single **online API** that accepts any incoming request, builds a runtime JSON from the request data, selects the configured workflow, gathers data from backend APIs, and forwards the result to the fulfillment system for processing.
+A **control-plane** service built with **Spring Boot 4.0.3** and **JDK 21**. It exposes REST APIs for a UI to **define and manage** workflows (rules, types, entity settings, entity-setting queries). It shares a PostgreSQL database with the online ingress service for workflow definitions and related tables.
+
+**Related repositories**
+
+| Role | Repository | Notes |
+|------|------------|--------|
+| **Online ingress** (execution entry) | [workflow-online-api](https://github.com/yiurenma/workflow-online-api) | `POST /api/workflow` only; see its README for runtime pipeline and shared DB |
+| **Management UI** | [workflow-ui](https://github.com/yiurenma/workflow-ui) | Consumes **this** service’s OpenAPI (`/v3/api-docs`) for CRUD; optional proxy to Online for other flows |
+
+If you check out all three next to each other locally, typical folder names are `workflow-operation-api`, `workflow-online-api`, and `workflow-ui`.
 
 ## Quick Start
 
@@ -11,7 +20,21 @@ mvn clean install
 mvn spring-boot:run
 ```
 
-Runs at `http://localhost:8080`.
+Runs at `http://localhost:8080` (override with env **`PORT`**; see `application.yml`).
+
+### Running Operation and Online on the same machine
+
+Both services default to **port 8080**. To run them together, start one of them on another port, for example:
+
+```bash
+# Terminal 1 — Operation (default)
+mvn spring-boot:run
+
+# Terminal 2 — Online on 8081
+mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
+```
+
+Point your UI or clients at the matching base URLs (`VITE_OPERATION_API_BASE`, `VITE_ONLINE_API_BASE`, or Vite proxy targets — see **workflow-ui** README).
 
 ## Key Endpoints
 
@@ -39,9 +62,11 @@ Runs at `http://localhost:8080`.
 
 | API | Description |
 |-----|-------------|
-| **Create Workflow** | Define a new workflow in the Workflow Operation API platform |
+| **Create Workflow** | Define a new workflow in this platform |
 | **Delete Workflow** | Remove a workflow by application name |
 | **Update Workflow** | Replace an existing workflow (internally: delete + create) |
+
+Frontend: **[workflow-ui](https://github.com/yiurenma/workflow-ui)** — use this service’s **`/v3/api-docs`** as the contract for management features.
 
 ### Entity Setting Query APIs (for admin/audit)
 
@@ -53,17 +78,14 @@ Runs at `http://localhost:8080`.
   - Returns revision history from Envers by exact `applicationName`, e.g.
     - `/api/workflow/entity-setting/history?applicationName=ITEST_APP&page=0&size=20`
 
-### Online API (Request Execution)
+### Online execution (not in this repository)
 
-A single **online API** serves as the entry point for all incoming requests:
+Request ingestion, runtime JSON assembly, workflow selection, and fulfillment forwarding are implemented in **[workflow-online-api](https://github.com/yiurenma/workflow-online-api)** (`POST /api/workflow`). This Operation service owns **definitions and schema**; Online owns the **ingress path** against the **shared** database. For sequence diagrams, encrypted payload rules, and configuration, read that repository’s README.
 
-1. **Request Ingestion** – Accepts any request regardless of path, headers, or body
-2. **Runtime JSON** – Collects all request data (path, headers, query params, body) into a unified runtime JSON
-3. **Workflow Selection** – Resolves and loads the workflow defined in the Workflow Operation API platform
-4. **Workflow Execution** – Runs the workflow to call backend systems and send the payload to the fulfillment system
+High-level flow:
 
-### Flow
-
-```
-Request → Online API (build runtime JSON) → Workflow Engine → Backend APIs → Fulfillment System
+```text
+Client → Online API (workflow-online-api) → workflow engine / backends → fulfillment
+                ↑
+         definitions & config from DB (maintained via Operation API + UI)
 ```
