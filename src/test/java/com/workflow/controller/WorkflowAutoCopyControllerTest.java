@@ -65,12 +65,11 @@ class WorkflowAutoCopyControllerTest {
     }
 
     @Test
-    void autoCopyWorkFlowShouldThrowBadRequestWhenTargetExistsMoreThanOnce() {
+    void autoCopyWorkFlowShouldThrowBadRequestWhenTargetAlreadyExists() {
         WorkflowEntitySetting original = WorkflowEntitySetting.builder().id(1L).applicationName("from").build();
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("from")).thenReturn(List.of(original));
         when(workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName("to")).thenReturn(List.of(
-                WorkflowEntitySetting.builder().id(2L).applicationName("to").build(),
-                WorkflowEntitySetting.builder().id(3L).applicationName("to").build()
+                WorkflowEntitySetting.builder().id(2L).applicationName("to").build()
         ));
 
         ResponseStatusException exception = assertThrows(

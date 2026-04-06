@@ -153,23 +153,22 @@ class WorkflowAutoCopyIntegrationTest extends AbstractWorkflowIntegrationTest {
     }
 
     @Test
-    @DisplayName("AutoCopy to existing target overwrites its workflow")
-    void autoCopyOverwritesExistingTarget() throws Exception {
+    @DisplayName("AutoCopy to existing target returns 400")
+    void autoCopyToExistingTargetReturns400() throws Exception {
         WorkFlow fullWorkflow = loadTestWorkflow();
         WorkFlow partialWorkflow = loadTestWorkflow();
         partialWorkflow.setPluginList(partialWorkflow.getPluginList().subList(0, 2));
 
         postWorkflow(APP_NAME, fullWorkflow);
         postWorkflow(APP_NAME_COPY, partialWorkflow);
-        assertEquals(2, getWorkflow(APP_NAME_COPY).getPluginList().size(), "Target initially has 2 plugins");
 
         mockMvc.perform(post("/api/workflow/autoCopy")
                         .param("fromApplicationName", APP_NAME)
                         .param("toApplicationName", APP_NAME_COPY)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isBadRequest());
 
-        assertEquals(fullWorkflow.getPluginList().size(), getWorkflow(APP_NAME_COPY).getPluginList().size(),
-                "After AutoCopy, target should have same plugin count as source");
+        assertEquals(2, getWorkflow(APP_NAME_COPY).getPluginList().size(),
+                "Target should be unchanged after rejected copy");
     }
 }

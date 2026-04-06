@@ -75,17 +75,15 @@ public class WorkflowAutoCopyController {
         WorkflowEntitySetting originalSetting = entitySettingList.get(0);
         List<WorkflowEntitySetting> targetSettingList =
                 workflowEntitySettingRepository.getWorkflowEntitySettingByApplicationName(toApplicationName);
-        if (targetSettingList.size() > 1) {
+        if (!targetSettingList.isEmpty()) {
             throw new ApiBusinessException(
                     HttpStatus.BAD_REQUEST,
                     ApiErrorCatalog.AUTOCOPY_TARGET_TOO_MANY,
-                    "Target application name must exist at most once; found: " + targetSettingList.size()
+                    "Target application name already exists; found: " + targetSettingList.size()
             );
         }
 
-        WorkflowEntitySetting targetSetting = targetSettingList.isEmpty()
-                ? new WorkflowEntitySetting()
-                : targetSettingList.get(0);
+        WorkflowEntitySetting targetSetting = new WorkflowEntitySetting();
 
         // Copy non-ID metadata to keep target config aligned with source while preserving target app name.
         org.springframework.beans.BeanUtils.copyProperties(
