@@ -1,3 +1,7 @@
+> **ARCHIVED** — This service is no longer hosted on Render. It is now deployed on **DigitalOcean App Platform** (`https://workflow-operation-api-n9sbp.ondigitalocean.app`), which deploys automatically from the `main` branch. This document is kept for historical reference only.
+
+---
+
 # Deploy on Render（配合 GitHub Actions）
 
 ## 仓库里已包含的内容

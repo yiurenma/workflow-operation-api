@@ -23,10 +23,11 @@ Standard Maven commands per `README.md`:
 | Package | `mvn package -Djacoco.skip=true` |
 | CI (same as GitHub Actions) | `mvn -B verify -Djacoco.skip=true` |
 
-### CI / Render
+### CI / DigitalOcean
 
-- **GitHub Actions**: `.github/workflows/ci.yml` runs on push and pull requests to `main` / `master`. Optional: `render-deploy.yml` posts to `RENDER_DEPLOY_HOOK_URL` after CI succeeds.
-- **Deploy details**: see `docs/deploy-render.md`. **Docker** image: `Dockerfile` at repo root (Render Java services typically use `runtime: docker`).
+- **GitHub Actions**: `.github/workflows/ci.yml` runs tests on push and pull requests to `main` / `master`.
+- **Deploy**: DigitalOcean App Platform deploys automatically when `main` is pushed — no manual deploy hook required.
+- **Docker** image: `Dockerfile` at repo root. `docs/deploy-render.md` is archived (Render no longer used).
 
 ### Gotchas
 
