@@ -200,6 +200,9 @@ public class WorkflowEntitySettingController {
         if (patch.getRetryProperties() != null) {
             entitySetting.setRetryProperties(patch.getRetryProperties());
         }
+        if (patch.getDescription() != null) {
+            entitySetting.setDescription(patch.getDescription());
+        }
         if (patch.getNewApplicationName() != null && !patch.getNewApplicationName().isBlank()) {
             String newName = patch.getNewApplicationName().trim();
             if (!newName.equals(applicationName)) {

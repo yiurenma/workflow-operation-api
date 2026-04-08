@@ -36,4 +36,7 @@ public class EntitySettingPatchRequest {
 
     @Schema(description = "New application name to rename the workflow to. When present, applicationName is changed to this value.", example = "MY_APP_V2")
     private String newApplicationName;
+
+    @Schema(description = "Human-readable description for this workflow", example = "Handles customer eligibility and notification dispatch")
+    private String description;
 }
