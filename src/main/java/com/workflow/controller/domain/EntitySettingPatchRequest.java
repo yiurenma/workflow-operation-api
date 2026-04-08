@@ -33,4 +33,7 @@ public class EntitySettingPatchRequest {
 
     @Schema(description = "Retry configuration payload (JSON/text)", maxLength = 10000)
     private String retryProperties;
+
+    @Schema(description = "New application name to rename the workflow to. When present, applicationName is changed to this value.", example = "MY_APP_V2")
+    private String newApplicationName;
 }
