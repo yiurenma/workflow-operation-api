@@ -200,6 +200,25 @@ public class WorkflowEntitySettingController {
         if (patch.getRetryProperties() != null) {
             entitySetting.setRetryProperties(patch.getRetryProperties());
         }
+        if (patch.getDescription() != null) {
+            entitySetting.setDescription(patch.getDescription());
+        }
+        if (patch.getNewApplicationName() != null && !patch.getNewApplicationName().isBlank()) {
+            String newName = patch.getNewApplicationName().trim();
+            if (!newName.equals(applicationName)) {
+                boolean exists = !workflowEntitySettingRepository
+                        .getWorkflowEntitySettingByApplicationName(newName).isEmpty();
+                if (exists) {
+                    throw new ApiBusinessException(
+                            HttpStatus.BAD_REQUEST,
+                            ApiErrorCatalog.ENTITY_SETTING_APP_NOT_UNIQUE,
+                            "A workflow with applicationName '" + newName + "' already exists"
+                    );
+                }
+                entitySetting.setApplicationName(newName);
+                log.info("Renaming applicationName from '{}' to '{}'", applicationName, newName);
+            }
+        }
 
         log.info("Patching entity setting for applicationName: {}", applicationName);
         return workflowEntitySettingRepository.save(entitySetting);

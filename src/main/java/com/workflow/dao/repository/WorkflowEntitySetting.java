@@ -80,4 +80,8 @@ public class WorkflowEntitySetting extends Auditable implements Serializable {
     @Column(columnDefinition = "TEXT")
     @Comment("Base64-encoded workflow UI map (plugin list, uiMap, uiMapList)")
     private String workflow;
+
+    @Column(columnDefinition = "TEXT")
+    @Comment("Human-readable description of this workflow")
+    private String description;
 }
