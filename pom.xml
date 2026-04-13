@@ -227,6 +227,7 @@
                                 <exclude>com/workflow/WorkflowOperationApiApplication*</exclude>
                                 <exclude>com/workflow/dao/repository/**</exclude>
                                 <exclude>com/workflow/controller/domain/**</exclude>
+                                <exclude>com/workflow/common/configuration/**</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -241,6 +242,7 @@
                                 <exclude>com/workflow/WorkflowOperationApiApplication*</exclude>
                                 <exclude>com/workflow/dao/repository/**</exclude>
                                 <exclude>com/workflow/controller/domain/**</exclude>
+                                <exclude>com/workflow/common/configuration/**</exclude>
                             </excludes>
                             <rules>
                                 <rule>
